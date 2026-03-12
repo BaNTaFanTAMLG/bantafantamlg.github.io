@@ -979,11 +979,11 @@ textarea.finp { resize:vertical; min-height:90px; }
 <script>
   // Replace these URLs with your real n8n webhook URLs when ready
   const WEBHOOKS = {
-    newInvoice:       'https://ciccio123456.app.n8n.cloud/webhook/tally-invoice',
+    newInvoice:       'https://your-n8n-instance.com/webhook/new-invoice',
     chaseInvoice:     'https://your-n8n-instance.com/webhook/chase-invoice',
     logVariation:     'https://ciccio123456.app.n8n.cloud/webhook/variation-capture',
     newRfi:           'https://your-n8n-instance.com/webhook/new-rfi',
-    siteDiary:        'https://your-n8n-instance.com/webhook/site-diary',
+    siteDiary:        'https://ciccio123456.app.n8n.cloud/webhook/site-diary',
     logSnag:          'https://your-n8n-instance.com/webhook/log-snag',
     programmeUpdate:  'https://your-n8n-instance.com/webhook/programme-update',
     uploadDocument:   'https://your-n8n-instance.com/webhook/upload-document',
@@ -1232,19 +1232,22 @@ textarea.finp { resize:vertical; min-height:90px; }
     if (!site || !date || !labour || !work) { setStatus('diary-status', false, '⚠️ Please fill in all required fields'); return; }
 
     const payload = {
-      submittedAt:   new Date().toISOString(),
-      company:       'Thalos Ltd',
-      site, date,
-      labourCount:   parseInt(labour),
-      weather:       document.getElementById('diary-weather').value,
-      temperature:   document.getElementById('diary-temp').value || null,
-      workCarriedOut: work,
-      progressPct:   document.getElementById('diary-progress').value,
-      issues:        document.getElementById('diary-issues').value.trim() || null,
-      plant:         document.getElementById('diary-plant').value.trim() || null,
-      visitors:      document.getElementById('diary-visitors').value.trim() || null,
-      photos:        document.getElementById('diary-photos').value ? JSON.parse(document.getElementById('diary-photos').value).map(p=>({name:p.name,type:p.type})) : [],
-      photoCount:    document.getElementById('diary-photos').value ? JSON.parse(document.getElementById('diary-photos').value).length : 0,
+      submittedAt:         new Date().toISOString(),
+      company_name:        'Thalos Ltd',
+      company_email:       'demo@tradebase.co.uk',
+      siteName:            site,
+      date:                date,
+      labourCount:         parseInt(labour),
+      weather:             document.getElementById('diary-weather').value,
+      temperature:         document.getElementById('diary-temp').value || null,
+      progressDescription: work,
+      progressPercent:     parseInt(document.getElementById('diary-progress').value),
+      issues:              document.getElementById('diary-issues').value.trim() || null,
+      foremanName:         document.getElementById('diary-visitors').value.trim() || null,
+      plant:               document.getElementById('diary-plant').value.trim() || null,
+      visitors:            document.getElementById('diary-visitors').value.trim() || null,
+      photoCount:          document.getElementById('diary-photos').value ? JSON.parse(document.getElementById('diary-photos').value).length : 0,
+      photos:              document.getElementById('diary-photos').value ? JSON.parse(document.getElementById('diary-photos').value) : [],
     };
 
     setBtnLoading('diary-submit-btn', true);
