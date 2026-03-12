@@ -979,7 +979,7 @@ textarea.finp { resize:vertical; min-height:90px; }
 <script>
   // Replace these URLs with your real n8n webhook URLs when ready
   const WEBHOOKS = {
-    newInvoice:       'https://ciccio123456.app.n8n.cloud/webhook/tally-invoice',
+    newInvoice:       'https://your-n8n-instance.com/webhook/new-invoice',
     chaseInvoice:     'https://your-n8n-instance.com/webhook/chase-invoice',
     logVariation:     'https://your-n8n-instance.com/webhook/log-variation',
     newRfi:           'https://your-n8n-instance.com/webhook/new-rfi',
@@ -994,12 +994,11 @@ textarea.finp { resize:vertical; min-height:90px; }
   // Returns true on success, false on failure.
   async function fireWebhook(url, payload) {
     try {
-      const res = await fetch(url, {
+      await fetch(url, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'text/plain' },
         body: JSON.stringify(payload)
       });
-      if (!res.ok) throw new Error('HTTP ' + res.status);
       return true;
     } catch (err) {
       console.error('Webhook failed:', url, err);
