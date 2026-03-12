@@ -979,7 +979,7 @@ textarea.finp { resize:vertical; min-height:90px; }
 <script>
   // Replace these URLs with your real n8n webhook URLs when ready
   const WEBHOOKS = {
-    newInvoice:       'https://ciccio123456.app.n8n.cloud/webhook/tally-invoice',
+    newInvoice:       'https://your-n8n-instance.com/webhook/new-invoice',
     chaseInvoice:     'https://your-n8n-instance.com/webhook/chase-invoice',
     logVariation:     'https://ciccio123456.app.n8n.cloud/webhook/variation-capture',
     newRfi:           'https://your-n8n-instance.com/webhook/new-rfi',
@@ -1274,19 +1274,21 @@ textarea.finp { resize:vertical; min-height:90px; }
     if (!site||!mc||!email||!desc||!cost||!date||!by) { setStatus('var-status',false,'⚠️ Please fill in all required fields'); return; }
 
     const payload = {
-      submittedAt:      new Date().toISOString(),
-      company:          'Thalos Ltd',
-      variationRef:     'VAR-' + Date.now().toString().slice(-4),
-      site, mainContractor: mc, mcEmail: email,
-      loggedBy:         by,
-      dateOfWork:       date,
-      description:      desc,
+      submittedAt:         new Date().toISOString(),
+      company:             'Thalos Ltd',
+      variationRef:        'VAR-' + Date.now().toString().slice(-4),
+      siteName:            site,
+      contractorName:      mc,
+      contractorEmail:     email,
+      foremanName:         by,
+      dateLogged:          date,
+      variationDescription: desc,
       verbalInstructionBy: document.getElementById('var-instruction').value.trim() || null,
-      estimatedCost:    parseFloat(cost).toFixed(2),
-      hoursSpent:       document.getElementById('var-hours').value || null,
-      currency:         'GBP',
-      photoCount:       document.getElementById('var-photos').value ? JSON.parse(document.getElementById('var-photos').value).length : 0,
-      chaseSchedule:    { autoChase: '3 days if no response', escalate: '7 days if no response' }
+      estimatedCost:       parseFloat(cost).toFixed(2),
+      hoursSpent:          document.getElementById('var-hours').value || null,
+      currency:            'GBP',
+      photoCount:          document.getElementById('var-photos').value ? JSON.parse(document.getElementById('var-photos').value).length : 0,
+      chaseSchedule:       { autoChase: '3 days if no response', escalate: '7 days if no response' }
     };
 
     setBtnLoading('var-submit-btn', true);
