@@ -273,12 +273,39 @@ textarea.finp { resize:vertical; min-height:90px; }
   <div class="login-mark">⚡</div>
   <div class="login-logo">Trade<span>Base</span></div>
   <div class="login-tagline">Site Command for Subcontractors</div>
-  <div class="login-form">
+  <div class="login-form" id="login-form-signin">
+    <div id="auth-status" style="display:none;border-radius:var(--radius-sm);padding:12px 14px;margin-bottom:14px;font-size:13px;font-weight:500;line-height:1.4"></div>
     <label class="login-lbl">Email Address</label>
-    <input type="email" class="login-input" id="login-email" placeholder="you@company.co.uk" value="nicholascallisto@gmail.com">
+    <input type="email" class="login-input" id="login-email" placeholder="you@company.co.uk">
     <label class="login-lbl">Password</label>
-    <input type="password" class="login-input" placeholder="••••••••" value="password">
-    <button class="login-btn" onclick="doLogin()">Sign In</button>
+    <input type="password" class="login-input" id="login-password" placeholder="••••••••">
+    <button class="login-btn" id="login-btn" onclick="doSignIn()">Sign In</button>
+    <div style="display:flex;justify-content:space-between;margin-top:14px;font-size:13px;position:relative;z-index:1">
+      <span style="color:var(--muted);cursor:pointer" onclick="showAuthForm('forgot')">Forgot password?</span>
+      <span style="color:var(--orange);cursor:pointer" onclick="showAuthForm('signup')">Create account</span>
+    </div>
+  </div>
+  <div class="login-form" id="login-form-signup" style="display:none">
+    <div id="signup-status" style="display:none;border-radius:var(--radius-sm);padding:12px 14px;margin-bottom:14px;font-size:13px;font-weight:500;line-height:1.4"></div>
+    <label class="login-lbl">Company Name</label>
+    <input type="text" class="login-input" id="signup-company" placeholder="e.g. Thalos Ltd">
+    <label class="login-lbl">Email Address</label>
+    <input type="email" class="login-input" id="signup-email" placeholder="you@company.co.uk">
+    <label class="login-lbl">Password (min 6 characters)</label>
+    <input type="password" class="login-input" id="signup-password" placeholder="••••••••">
+    <button class="login-btn" id="signup-btn" onclick="doSignUp()">Create Account</button>
+    <div style="text-align:center;margin-top:14px;font-size:13px;position:relative;z-index:1">
+      <span style="color:var(--muted)">Already have an account? </span><span style="color:var(--orange);cursor:pointer" onclick="showAuthForm('signin')">Sign in</span>
+    </div>
+  </div>
+  <div class="login-form" id="login-form-forgot" style="display:none">
+    <div id="forgot-status" style="display:none;border-radius:var(--radius-sm);padding:12px 14px;margin-bottom:14px;font-size:13px;font-weight:500;line-height:1.4"></div>
+    <label class="login-lbl">Email Address</label>
+    <input type="email" class="login-input" id="forgot-email" placeholder="you@company.co.uk">
+    <button class="login-btn" onclick="doForgotPassword()">Send Reset Link</button>
+    <div style="text-align:center;margin-top:14px;font-size:13px;position:relative;z-index:1">
+      <span style="color:var(--orange);cursor:pointer" onclick="showAuthForm('signin')">← Back to sign in</span>
+    </div>
   </div>
 </div>
 
@@ -296,7 +323,7 @@ textarea.finp { resize:vertical; min-height:90px; }
   <div class="home-header">
     <div class="home-greeting" id="home-date"></div>
     <div class="home-title" id="home-greeting-text">Good morning</div>
-    <div class="home-co"><div class="home-co-dot"></div>Logged in as <span>Thalos Ltd</span></div>
+    <div class="home-co"><div class="home-co-dot"></div>Logged in as <span id="home-company-name">—</span></div>
   </div>
   <div class="stats-row">
     <div class="stat-pill"><div class="stat-val" style="color:var(--orange)">£0</div><div class="stat-lbl">Outstanding</div></div>
@@ -953,16 +980,20 @@ textarea.finp { resize:vertical; min-height:90px; }
   <div class="ni" id="ni4" onclick="go('page-billing');setNav(4)"><span class="ni-ico">⭐</span><span class="ni-lbl">Plan</span></div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
-  // ═══ PWA HARDENING ═════════════════════════════════════════════════════════
-  // Lock orientation to portrait (for installed PWA)
-  if (screen.orientation && screen.orientation.lock) {
-    screen.orientation.lock('portrait').catch(() => {});
-  }
+  // ═══ SUPABASE CONFIG ═══════════════════════════════════════════════════════
+  const SUPABASE_URL = 'https://ebggorjsavavmfhxooua.supabase.co';
+  const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImViZ2dvcmpzYXZhdm1maHhvb3VhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM0MDQ4MDEsImV4cCI6MjA4ODk4MDgwMX0.cYaOtE4xgCNQA71uf9KpcC0SNOKWW1ehdlJuyVS-lqs';
+  const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-  // ═══ WEBHOOK URLS ═══════════════════════════════════════════════════════════
+  // ═══ APP STATE ═════════════════════════════════════════════════════════════
+  let currentUser = null;
+  let currentCompany = null;
+
+  // ═══ WEBHOOK URLS (still fire n8n automations alongside DB saves) ═════════
   const WEBHOOKS = {
-    newInvoice:       'https://ciccio123456.app.n8n.cloud/webhook/tally-invoice',
+    newInvoice:       'https://your-n8n-instance.com/webhook/new-invoice',
     chaseInvoice:     'https://your-n8n-instance.com/webhook/chase-invoice',
     logVariation:     'https://ciccio123456.app.n8n.cloud/webhook/variation-capture',
     newRfi:           'https://your-n8n-instance.com/webhook/new-rfi',
@@ -972,86 +1003,23 @@ textarea.finp { resize:vertical; min-height:90px; }
     uploadDocument:   'https://your-n8n-instance.com/webhook/upload-document',
   };
 
-  // ═══ WEBHOOK HELPER ════════════════════════════════════════════════════════
   async function fireWebhook(url, payload) {
-    try {
-      await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain' },
-        body: JSON.stringify(payload)
-      });
-      return true;
-    } catch (err) {
-      console.error('Webhook failed:', url, err);
-      return false;
-    }
+    try { await fetch(url, { method:'POST', headers:{'Content-Type':'text/plain'}, body:JSON.stringify(payload) }); return true; }
+    catch(e) { console.error('Webhook failed:', url, e); return false; }
   }
 
-  // ═══ DATE & GREETING ═══════════════════════════════════════════════════════
-  const d = new Date();
-  const dnames = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
-  const mnames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  const el = document.getElementById('home-date');
-  if(el) el.textContent = dnames[d.getDay()] + ', ' + d.getDate() + ' ' + mnames[d.getMonth()] + ' ' + d.getFullYear();
+  // ═══ PWA HARDENING ═════════════════════════════════════════════════════════
+  if (screen.orientation && screen.orientation.lock) screen.orientation.lock('portrait').catch(()=>{});
 
-  // Dynamic greeting
-  const hr = d.getHours();
-  const greetEl = document.getElementById('home-greeting-text');
-  if (greetEl) {
-    if (hr < 12) greetEl.textContent = 'Good morning';
-    else if (hr < 17) greetEl.textContent = 'Good afternoon';
-    else greetEl.textContent = 'Good evening';
+  // ═══ AUTH FORMS ════════════════════════════════════════════════════════════
+  function showAuthForm(type) {
+    document.getElementById('login-form-signin').style.display = type === 'signin' ? 'block' : 'none';
+    document.getElementById('login-form-signup').style.display = type === 'signup' ? 'block' : 'none';
+    document.getElementById('login-form-forgot').style.display = type === 'forgot' ? 'block' : 'none';
+    ['auth-status','signup-status','forgot-status'].forEach(id => document.getElementById(id).style.display = 'none');
   }
 
-  // Director report date
-  const dirLabel = document.getElementById('director-date-label');
-  if (dirLabel) dirLabel.textContent = 'Week ending ' + d.getDate() + ' ' + mnames[d.getMonth()] + ' ' + d.getFullYear() + ' — Thalos Ltd';
-
-  // ═══ NAVIGATION ════════════════════════════════════════════════════════════
-  function go(id) {
-    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-    document.getElementById(id).classList.add('active');
-    document.getElementById(id).scrollTop = 0;
-    const nav = document.getElementById('bnav');
-    nav.classList.toggle('on', id !== 'page-login');
-  }
-
-  function setNav(i) {
-    for(let j=0;j<5;j++) {
-      const el = document.getElementById('ni'+j);
-      if(el) el.classList.toggle('on', j===i);
-    }
-  }
-
-  function doLogin() {
-    go('page-home');
-    setNav(0);
-    toast('✅ Welcome back — Thalos Ltd','success');
-  }
-
-  // ═══ TOAST & MODAL ═════════════════════════════════════════════════════════
-  let _tt;
-  function toast(msg, type) {
-    const t = document.getElementById('toast');
-    t.textContent = msg;
-    t.className = 'show' + (type ? ' '+type : '');
-    clearTimeout(_tt);
-    _tt = setTimeout(() => t.className='', 3000);
-  }
-
-  let _cb;
-  function modal(title, msg, cb) {
-    document.getElementById('m-title').textContent = title;
-    document.getElementById('m-msg').textContent = msg;
-    _cb = cb;
-    document.getElementById('modal').classList.add('show');
-    document.getElementById('m-ok').onclick = function(){closeModal();if(_cb)_cb();};
-  }
-  function closeModal() { document.getElementById('modal').classList.remove('show'); }
-  function closeLightbox() { document.getElementById('lightbox').style.display = 'none'; }
-
-  // ═══ FORM HELPERS ══════════════════════════════════════════════════════════
-  function setStatus(id, ok, msg) {
+  function setAuthStatus(id, ok, msg) {
     const el = document.getElementById(id);
     el.style.display = 'block';
     el.style.background = ok ? 'var(--green-soft)' : 'var(--red-soft)';
@@ -1060,499 +1028,663 @@ textarea.finp { resize:vertical; min-height:90px; }
     el.textContent = msg;
   }
 
+  async function doSignIn() {
+    const email = document.getElementById('login-email').value.trim();
+    const password = document.getElementById('login-password').value;
+    if (!email || !password) { setAuthStatus('auth-status', false, 'Please enter email and password'); return; }
+
+    document.getElementById('login-btn').textContent = 'Signing in...';
+    document.getElementById('login-btn').disabled = true;
+
+    const { data, error } = await sb.auth.signInWithPassword({ email, password });
+
+    document.getElementById('login-btn').textContent = 'Sign In';
+    document.getElementById('login-btn').disabled = false;
+
+    if (error) { setAuthStatus('auth-status', false, error.message); return; }
+
+    currentUser = data.user;
+    await loadCompanyAndEnter();
+  }
+
+  async function doSignUp() {
+    const company = document.getElementById('signup-company').value.trim();
+    const email = document.getElementById('signup-email').value.trim();
+    const password = document.getElementById('signup-password').value;
+    if (!company || !email || !password) { setAuthStatus('signup-status', false, 'Please fill in all fields'); return; }
+    if (password.length < 6) { setAuthStatus('signup-status', false, 'Password must be at least 6 characters'); return; }
+
+    document.getElementById('signup-btn').textContent = 'Creating...';
+    document.getElementById('signup-btn').disabled = true;
+
+    const { data, error } = await sb.auth.signUp({ email, password });
+
+    document.getElementById('signup-btn').textContent = 'Create Account';
+    document.getElementById('signup-btn').disabled = false;
+
+    if (error) { setAuthStatus('signup-status', false, error.message); return; }
+
+    // Check if email confirmation is required
+    if (data.user && !data.session) {
+      setAuthStatus('signup-status', true, '✅ Check your email to confirm your account, then sign in.');
+      return;
+    }
+
+    currentUser = data.user;
+
+    // Create company record
+    const { error: compErr } = await sb.from('companies').insert({
+      owner_id: currentUser.id,
+      name: company,
+      email: email
+    });
+
+    if (compErr) { console.error('Company creation failed:', compErr); }
+
+    await loadCompanyAndEnter();
+  }
+
+  async function doForgotPassword() {
+    const email = document.getElementById('forgot-email').value.trim();
+    if (!email) { setAuthStatus('forgot-status', false, 'Please enter your email'); return; }
+
+    const { error } = await sb.auth.resetPasswordForEmail(email, {
+      redirectTo: window.location.origin + window.location.pathname
+    });
+
+    if (error) { setAuthStatus('forgot-status', false, error.message); return; }
+    setAuthStatus('forgot-status', true, '✅ Reset link sent — check your email');
+  }
+
+  async function loadCompanyAndEnter() {
+    // Load or create company
+    const { data: companies } = await sb.from('companies').select('*').limit(1);
+
+    if (companies && companies.length > 0) {
+      currentCompany = companies[0];
+    } else {
+      // Auto-create company from email if missing (e.g. confirmed email signup)
+      const { data: newCo } = await sb.from('companies').insert({
+        owner_id: currentUser.id,
+        name: currentUser.email.split('@')[0],
+        email: currentUser.email
+      }).select().single();
+      currentCompany = newCo;
+    }
+
+    // Update UI with company info
+    const coName = currentCompany?.name || 'Your Company';
+    document.getElementById('home-company-name').textContent = coName;
+
+    // Set greeting
+    const d = new Date();
+    const dnames = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+    const mnames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const dateEl = document.getElementById('home-date');
+    if (dateEl) dateEl.textContent = dnames[d.getDay()] + ', ' + d.getDate() + ' ' + mnames[d.getMonth()] + ' ' + d.getFullYear();
+    const hr = d.getHours();
+    const greetEl = document.getElementById('home-greeting-text');
+    if (greetEl) greetEl.textContent = hr < 12 ? 'Good morning' : hr < 17 ? 'Good afternoon' : 'Good evening';
+
+    const dirLabel = document.getElementById('director-date-label');
+    if (dirLabel) dirLabel.textContent = 'Week ending ' + d.getDate() + ' ' + mnames[d.getMonth()] + ' ' + d.getFullYear() + ' — ' + coName;
+
+    // Update settings fields
+    const settingsInputs = document.querySelectorAll('#page-settings .finp');
+    if (settingsInputs[0]) settingsInputs[0].value = currentCompany?.name || '';
+    if (settingsInputs[1]) settingsInputs[1].value = currentCompany?.email || '';
+    if (settingsInputs[2]) settingsInputs[2].value = currentCompany?.phone || '';
+    if (settingsInputs[3]) settingsInputs[3].value = currentCompany?.sort_code || '';
+    if (settingsInputs[4]) settingsInputs[4].value = currentCompany?.account_number || '';
+
+    go('page-home');
+    setNav(0);
+    toast('✅ Welcome back — ' + coName, 'success');
+
+    // Load all data in background
+    loadInvoices();
+    loadVariations();
+    loadDiary();
+    loadRfis();
+    loadSnags();
+    loadProgramme();
+    loadDocuments();
+    updateHomeStats();
+  }
+
+  // ═══ CHECK SESSION ON LOAD ═════════════════════════════════════════════════
+  sb.auth.onAuthStateChange(async (event, session) => {
+    if (event === 'SIGNED_IN' && session && !currentUser) {
+      currentUser = session.user;
+      await loadCompanyAndEnter();
+    }
+  });
+
+  // Check existing session
+  (async () => {
+    const { data: { session } } = await sb.auth.getSession();
+    if (session) {
+      currentUser = session.user;
+      await loadCompanyAndEnter();
+    }
+  })();
+
+  // ═══ NAVIGATION ════════════════════════════════════════════════════════════
+  function go(id) {
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+    document.getElementById(id).scrollTop = 0;
+    document.getElementById('bnav').classList.toggle('on', id !== 'page-login');
+
+    // Reload data when navigating to list pages
+    if (currentCompany) {
+      if (id === 'page-money') loadInvoices();
+      if (id === 'page-variations') loadVariations();
+      if (id === 'page-diary') loadDiary();
+      if (id === 'page-rfi') loadRfis();
+      if (id === 'page-snags') loadSnags();
+      if (id === 'page-programme') loadProgramme();
+      if (id === 'page-documents') loadDocuments();
+      if (id === 'page-home') updateHomeStats();
+    }
+  }
+
+  function setNav(i) { for(let j=0;j<5;j++) document.getElementById('ni'+j)?.classList.toggle('on', j===i); }
+
+  // ═══ TOAST & MODAL ═════════════════════════════════════════════════════════
+  let _tt;
+  function toast(msg, type) {
+    const t = document.getElementById('toast');
+    t.textContent = msg; t.className = 'show' + (type ? ' '+type : '');
+    clearTimeout(_tt); _tt = setTimeout(() => t.className='', 3000);
+  }
+  let _cb;
+  function modal(title, msg, cb) {
+    document.getElementById('m-title').textContent = title;
+    document.getElementById('m-msg').textContent = msg;
+    _cb = cb;
+    document.getElementById('modal').classList.add('show');
+    document.getElementById('m-ok').onclick = () => { closeModal(); if(_cb) _cb(); };
+  }
+  function closeModal() { document.getElementById('modal').classList.remove('show'); }
+  function closeLightbox() { document.getElementById('lightbox').style.display = 'none'; }
+
+  // ═══ HELPERS ═══════════════════════════════════════════════════════════════
+  function setStatus(id, ok, msg) {
+    const el = document.getElementById(id); el.style.display = 'block';
+    el.style.background = ok ? 'var(--green-soft)' : 'var(--red-soft)';
+    el.style.border = ok ? '1px solid rgba(52,211,153,0.3)' : '1px solid rgba(255,71,87,0.3)';
+    el.style.color = ok ? 'var(--green)' : 'var(--red)'; el.textContent = msg;
+  }
   function setBtnLoading(id, loading) {
-    const btn = document.getElementById(id);
-    btn.disabled = loading;
-    btn.style.opacity = loading ? '0.6' : '1';
+    const btn = document.getElementById(id); btn.disabled = loading; btn.style.opacity = loading ? '0.6' : '1';
     if (loading) { btn.dataset.orig = btn.textContent; btn.textContent = 'Sending...'; }
     else btn.textContent = btn.dataset.orig || btn.textContent;
   }
+  function formatUKDate(d) { if(!d) return ''; const p = d.split('-'); return p[2]+'/'+p[1]+'/'+p[0]; }
+  function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
 
-  function formatUKDate(isoDate) {
-    if (!isoDate) return '';
-    const parts = isoDate.split('-');
-    return parts[2] + '/' + parts[1] + '/' + parts[0];
+  // ═══ RENDER HELPERS ════════════════════════════════════════════════════════
+  function renderInvoiceCard(inv) {
+    const isPaid = inv.status === 'paid';
+    const isOverdue = inv.status === 'overdue';
+    const isDue = inv.status === 'due_soon';
+    const pillClass = isPaid ? 'p-grn' : isOverdue ? 'p-red' : isDue ? 'p-amb' : 'p-org';
+    const pillText = isPaid ? 'PAID' : isOverdue ? 'OVERDUE' : isDue ? 'DUE SOON' : 'SENT';
+    const amtClass = isPaid ? 'g' : isOverdue ? '' : 'a';
+
+    return `<div class="card" data-id="${inv.id}"><div class="c-head"><div><div class="c-t">${esc(inv.invoice_number)}</div><div class="c-s">${esc(inv.site)} — ${esc(inv.client_name)}</div></div><div class="pill ${pillClass}">${pillText}</div></div><div class="amt ${amtClass}">£${Number(inv.gross_amount).toLocaleString('en-GB',{minimumFractionDigits:0})}</div><div class="row"><span class="rl">Due Date</span><span class="rv">${formatUKDate(inv.due_date)}</span></div>${isPaid && inv.paid_date ? '<div class="row"><span class="rl">Paid On</span><span class="rv">'+formatUKDate(inv.paid_date)+'</span></div>' : ''}${!isPaid ? '<div class="brow">'+(isOverdue ? '<button class="btn btn-p" style="flex:1" onclick="chaseInvoice(\''+inv.id+'\')">Chase Now</button>' : '')+'<button class="btn btn-'+(isPaid?'g':'s')+'" onclick="markInvoicePaid(\''+inv.id+'\')">Mark Paid</button></div>' : ''}</div>`;
   }
 
-  // ═══ DYNAMIC CARD HELPER ═══════════════════════════════════════════════════
-  function prependCard(listId, html) {
-    const list = document.getElementById(listId);
-    if (!list) return;
-    const temp = document.createElement('div');
-    temp.innerHTML = html;
-    const card = temp.firstElementChild;
-    card.classList.add('new-card');
-    list.insertBefore(card, list.firstChild);
+  function renderVariationCard(v) {
+    const pillClass = v.status==='approved' ? 'p-grn' : v.status==='rejected' ? 'p-red' : 'p-amb';
+    const pillText = v.status.toUpperCase();
+    const amtClass = v.status==='approved' ? 'g' : 'a';
+    return `<div class="card" data-id="${v.id}"><div class="c-head"><div><div class="c-t">${esc(v.variation_ref)}</div><div class="c-s">${esc(v.site_name)}</div></div><div class="pill ${pillClass}">${pillText}</div></div><div class="amt ${amtClass}">£${Number(v.estimated_cost).toLocaleString('en-GB',{minimumFractionDigits:0})}</div><div class="row"><span class="rl">Work</span><span class="rv">${esc(v.description.substring(0,50))}${v.description.length>50?'...':''}</span></div><div class="row"><span class="rl">Logged By</span><span class="rv">${esc(v.foreman_name)}</span></div><div class="row"><span class="rl">Sent To</span><span class="rv">${esc(v.contractor_name)}</span></div><div class="brow"><button class="btn btn-s" onclick="toast('📧 Chaser sent','success')">Send Chaser</button></div></div>`;
+  }
+
+  function renderDiaryCard(d) {
+    const pColor = d.progress_percent >= 80 ? 'var(--green)' : d.progress_percent >= 50 ? 'var(--amber)' : 'var(--red)';
+    return `<div class="card" style="border-color:rgba(255,85,0,0.3)"><div class="c-t" style="margin-bottom:12px">${esc(d.site_name)} — ${formatUKDate(d.entry_date)}</div><div class="row"><span class="rl">Labour</span><span class="rv">${d.labour_count} operatives</span></div><div class="row"><span class="rl">Weather</span><span class="rv">${esc(d.weather||'')}${d.temperature ? ', '+d.temperature+'°C' : ''}</span></div>${d.issues ? '<div class="row"><span class="rl">Issues</span><span class="rv" style="color:var(--amber)">'+esc(d.issues)+'</span></div>':''}<div style="margin-top:12px"><div style="display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-bottom:4px"><span>Progress</span><span style="color:${pColor}">${d.progress_percent}%</span></div><div class="pbar"><div class="pfil" style="width:${d.progress_percent}%;background:${pColor}"></div></div></div></div>`;
+  }
+
+  function renderRfiCard(r) {
+    const pillClass = r.status==='answered' ? 'p-grn' : r.status==='escalated' ? 'p-red' : 'p-org';
+    const pillText = r.status.toUpperCase();
+    return `<div class="card" data-id="${r.id}"><div class="c-head"><div><div class="c-t">${esc(r.rfi_ref)}</div><div class="c-s">${esc(r.site)}</div></div><div class="pill ${pillClass}">${pillText}</div></div><div class="row"><span class="rl">Question</span><span class="rv">${esc(r.subject)}</span></div><div class="row"><span class="rl">Sent To</span><span class="rv">${esc(r.addressed_to)}</span></div><div class="row"><span class="rl">Work Blocked</span><span class="rv" style="color:${r.work_blocked?'var(--red)':'var(--green)'}">${r.work_blocked?'Yes — on record':'No'}</span></div><div class="brow"><button class="btn btn-s" onclick="toast('📧 Chaser sent','success')">Chase</button></div></div>`;
+  }
+
+  function renderSnagCard(s) {
+    const pillClass = s.status==='closed' ? 'p-grn' : 'p-org';
+    const pillText = s.status.toUpperCase();
+    return `<div class="card" data-id="${s.id}"><div class="c-head"><div><div class="c-t">${esc(s.snag_ref)}</div><div class="c-s">${esc(s.site)} — ${esc(s.location)}</div></div><div class="pill ${pillClass}">${pillText}</div></div><div class="row"><span class="rl">Issue</span><span class="rv">${esc(s.description.substring(0,50))}${s.description.length>50?'...':''}</span></div><div class="row"><span class="rl">Priority</span><span class="rv">${s.priority.charAt(0).toUpperCase()+s.priority.slice(1)}</span></div>${s.assigned_to?'<div class="row"><span class="rl">Assigned To</span><span class="rv">'+esc(s.assigned_to)+'</span></div>':''}${s.status!=='closed'?'<div class="brow"><button class="btn btn-grn" onclick="markSnagClosed(\''+s.id+'\')">Mark Complete</button></div>':''}</div>`;
+  }
+
+  function renderProgrammeCard(p) {
+    const barColor = p.status==='on-track' ? 'var(--green)' : p.status==='at-risk' ? 'var(--amber)' : 'var(--red)';
+    const pillClass = p.status==='on-track' ? 'p-grn' : p.status==='at-risk' ? 'p-amb' : 'p-red';
+    return `<div class="card"><div class="c-head"><div class="c-t">${esc(p.site)}</div><div class="pill ${pillClass}">${p.status.replace('-',' ').toUpperCase()}</div></div><div style="margin-top:8px"><div style="display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-bottom:4px"><span>Planned</span><span>${p.planned_pct}%</span></div><div class="pbar"><div class="pfil" style="width:${p.planned_pct}%;background:var(--subtle)"></div></div><div style="display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin:10px 0 4px"><span>Actual</span><span style="color:${barColor}">${p.actual_pct}%</span></div><div class="pbar"><div class="pfil" style="width:${p.actual_pct}%;background:${barColor}"></div></div></div></div>`;
+  }
+
+  function renderDocCard(d) {
+    return `<div class="card"><div class="c-head"><div class="c-t">${esc(d.document_name)}</div><div class="pill p-grn">UPLOADED</div></div><div class="row"><span class="rl">Type</span><span class="rv">${esc(d.document_type)}</span></div>${d.expiry_date?'<div class="row"><span class="rl">Expires</span><span class="rv">'+formatUKDate(d.expiry_date)+'</span></div>':''}<div class="brow"><button class="btn btn-s" onclick="toast('📎 Sharing...','info')">Share</button><button class="btn btn-g" onclick="toast('📄 Opening...','info')">View</button></div></div>`;
+  }
+
+  function renderEmpty(ico, msg) {
+    return `<div class="empty-state"><div class="empty-state-ico">${ico}</div><div class="empty-state-msg">${msg}</div></div>`;
+  }
+
+  // ═══ DATA LOADERS ══════════════════════════════════════════════════════════
+  async function loadInvoices() {
+    if (!currentCompany) return;
+    const { data } = await sb.from('invoices').select('*').eq('company_id', currentCompany.id).order('created_at', {ascending:false});
+    const list = document.getElementById('invoice-list');
+    if (!data || data.length === 0) { list.innerHTML = renderEmpty('💷','No invoices yet.<br>Raise your first invoice to get started.'); return; }
+    list.innerHTML = data.map(renderInvoiceCard).join('');
+    updateMoneyStats(data);
+  }
+
+  function updateMoneyStats(invoices) {
+    const boxes = document.querySelectorAll('#page-money .met-v');
+    const outstanding = invoices.filter(i=>i.status!=='paid'&&i.status!=='cancelled').reduce((s,i)=>s+Number(i.gross_amount),0);
+    const overdue = invoices.filter(i=>i.status==='overdue').reduce((s,i)=>s+Number(i.gross_amount),0);
+    const now = new Date(); const weekLater = new Date(now.getTime()+7*86400000);
+    const dueWeek = invoices.filter(i=>i.status!=='paid'&&new Date(i.due_date)<=weekLater&&new Date(i.due_date)>=now).reduce((s,i)=>s+Number(i.gross_amount),0);
+    const thisMonth = invoices.filter(i=>i.status==='paid'&&i.paid_date&&new Date(i.paid_date).getMonth()===now.getMonth()).reduce((s,i)=>s+Number(i.gross_amount),0);
+    if(boxes[0]) { boxes[0].textContent = '£'+outstanding.toLocaleString('en-GB',{maximumFractionDigits:0}); boxes[0].style.color = outstanding > 0 ? 'var(--orange)' : 'var(--green)'; }
+    if(boxes[1]) { boxes[1].textContent = '£'+overdue.toLocaleString('en-GB',{maximumFractionDigits:0}); boxes[1].style.color = overdue > 0 ? 'var(--red)' : 'var(--green)'; }
+    if(boxes[2]) { boxes[2].textContent = '£'+dueWeek.toLocaleString('en-GB',{maximumFractionDigits:0}); boxes[2].style.color = dueWeek > 0 ? 'var(--amber)' : 'var(--green)'; }
+    if(boxes[3]) { boxes[3].textContent = '£'+thisMonth.toLocaleString('en-GB',{maximumFractionDigits:0}); boxes[3].style.color = 'var(--green)'; }
+  }
+
+  async function loadVariations() {
+    if (!currentCompany) return;
+    const { data } = await sb.from('variations').select('*').eq('company_id', currentCompany.id).order('created_at', {ascending:false});
+    const list = document.getElementById('variation-list');
+    if (!data || data.length === 0) { list.innerHTML = renderEmpty('📋','No variations logged yet.<br>Log your first variation to start protecting your extras.'); return; }
+    list.innerHTML = data.map(renderVariationCard).join('');
+  }
+
+  async function loadDiary() {
+    if (!currentCompany) return;
+    const { data } = await sb.from('diary_entries').select('*').eq('company_id', currentCompany.id).order('entry_date', {ascending:false});
+    const list = document.getElementById('diary-list');
+    const prev = document.getElementById('diary-previous');
+    if (!data || data.length === 0) {
+      list.innerHTML = renderEmpty('📓','No diary entries yet.<br>Add your first entry to start building your evidence trail.');
+      prev.innerHTML = '<div class="empty-state"><div class="empty-state-msg" style="font-size:12px">Previous entries will appear here</div></div>';
+      return;
+    }
+    const today = new Date().toISOString().split('T')[0];
+    const todayEntries = data.filter(d => d.entry_date === today);
+    const olderEntries = data.filter(d => d.entry_date !== today);
+    list.innerHTML = todayEntries.length ? todayEntries.map(renderDiaryCard).join('') : renderEmpty('📓','No entry for today yet.');
+    prev.innerHTML = olderEntries.length ? olderEntries.slice(0,10).map(renderDiaryCard).join('') : '<div class="empty-state"><div class="empty-state-msg" style="font-size:12px">Previous entries will appear here</div></div>';
+  }
+
+  async function loadRfis() {
+    if (!currentCompany) return;
+    const { data } = await sb.from('rfis').select('*').eq('company_id', currentCompany.id).order('created_at', {ascending:false});
+    const list = document.getElementById('rfi-list');
+    if (!data || data.length === 0) { list.innerHTML = renderEmpty('❓','No RFIs raised yet.<br>Raise your first RFI to get the question on record.'); return; }
+    list.innerHTML = data.map(renderRfiCard).join('');
+  }
+
+  async function loadSnags() {
+    if (!currentCompany) return;
+    const { data } = await sb.from('snags').select('*').eq('company_id', currentCompany.id).order('created_at', {ascending:false});
+    const list = document.getElementById('snag-list');
+    const boxes = document.querySelectorAll('#page-snags .met-v');
+    if (!data || data.length === 0) {
+      list.innerHTML = renderEmpty('🔧','No snags logged yet.<br>Log your first snag to start tracking to closure.');
+      if(boxes[0]) boxes[0].textContent = '0'; if(boxes[1]) boxes[1].textContent = '0';
+      return;
+    }
+    list.innerHTML = data.map(renderSnagCard).join('');
+    const open = data.filter(s=>s.status!=='closed').length;
+    const closed = data.filter(s=>s.status==='closed').length;
+    if(boxes[0]) { boxes[0].textContent = open; boxes[0].style.color = open > 0 ? 'var(--red)' : 'var(--green)'; }
+    if(boxes[1]) { boxes[1].textContent = closed; }
+  }
+
+  async function loadProgramme() {
+    if (!currentCompany) return;
+    const { data } = await sb.from('programme_updates').select('*').eq('company_id', currentCompany.id).order('created_at', {ascending:false});
+    const list = document.getElementById('programme-list');
+    if (!data || data.length === 0) { list.innerHTML = renderEmpty('📊','No programme data yet.<br>Add your first progress update to start tracking.'); return; }
+    // Show latest per site
+    const bySite = {}; data.forEach(p => { if (!bySite[p.site]) bySite[p.site] = p; });
+    list.innerHTML = Object.values(bySite).map(renderProgrammeCard).join('');
+  }
+
+  async function loadDocuments() {
+    if (!currentCompany) return;
+    const { data } = await sb.from('documents').select('*').eq('company_id', currentCompany.id).order('created_at', {ascending:false});
+    const list = document.getElementById('document-list');
+    if (!data || data.length === 0) { list.innerHTML = renderEmpty('📁','No documents uploaded yet.<br>Upload your first document to build your vault.'); return; }
+    list.innerHTML = data.map(renderDocCard).join('');
+  }
+
+  async function updateHomeStats() {
+    if (!currentCompany) return;
+    const { data: inv } = await sb.from('invoices').select('gross_amount,status').eq('company_id', currentCompany.id);
+    const { data: vars } = await sb.from('variations').select('status').eq('company_id', currentCompany.id);
+    const { data: sites } = await sb.from('diary_entries').select('site_name').eq('company_id', currentCompany.id);
+
+    const pills = document.querySelectorAll('#page-home .stat-val');
+    const outstanding = (inv||[]).filter(i=>i.status!=='paid'&&i.status!=='cancelled').reduce((s,i)=>s+Number(i.gross_amount),0);
+    const overdue = (inv||[]).filter(i=>i.status==='overdue').length;
+    const uniqueSites = [...new Set((sites||[]).map(s=>s.site_name))].length;
+    const pendingVars = (vars||[]).filter(v=>v.status==='pending').length;
+
+    if(pills[0]) { pills[0].textContent = outstanding > 0 ? '£'+Math.round(outstanding/1000)+'k' : '£0'; pills[0].style.color = outstanding > 0 ? 'var(--orange)' : 'var(--green)'; }
+    if(pills[1]) { pills[1].textContent = overdue; pills[1].style.color = overdue > 0 ? 'var(--red)' : 'var(--green)'; }
+    if(pills[2]) { pills[2].textContent = uniqueSites; pills[2].style.color = 'var(--green)'; }
+    if(pills[3]) { pills[3].textContent = pendingVars; pills[3].style.color = pendingVars > 0 ? 'var(--amber)' : 'var(--green)'; }
+  }
+
+  // ═══ ACTIONS (mark paid, close snag etc) ═══════════════════════════════════
+  async function markInvoicePaid(id) {
+    modal('Mark as Paid?', 'This invoice will be marked as paid with today\'s date.', async () => {
+      const today = new Date().toISOString().split('T')[0];
+      await sb.from('invoices').update({ status: 'paid', paid_date: today }).eq('id', id);
+      toast('✅ Invoice marked as paid', 'success');
+      loadInvoices();
+    });
+  }
+
+  async function chaseInvoice(id) {
+    modal('Send Formal Demand?', 'A legal payment notice will be triggered.', async () => {
+      await sb.from('invoices').update({ chasers_sent: sb.rpc ? 1 : 1 }).eq('id', id);
+      toast('📧 Formal demand sent', 'success');
+    });
+  }
+
+  async function markSnagClosed(id) {
+    modal('Mark Snag Complete?', 'Snag marked complete — notification sent to team.', async () => {
+      const today = new Date().toISOString().split('T')[0];
+      await sb.from('snags').update({ status: 'closed', closed_date: today }).eq('id', id);
+      toast('✅ Snag closed', 'success');
+      loadSnags();
+    });
   }
 
   // ═══ SUBMIT INVOICE ════════════════════════════════════════════════════════
   async function submitInvoice() {
-    const client   = document.getElementById('inv-client').value.trim();
-    const email    = document.getElementById('inv-email').value.trim();
-    const whatsapp = document.getElementById('inv-whatsapp').value.trim();
-    const site     = document.getElementById('inv-site').value.trim();
-    const work     = document.getElementById('inv-work').value.trim();
-    const amount   = document.getElementById('inv-amount').value.trim();
-    const due      = document.getElementById('inv-due').value.trim();
-    const vat      = document.getElementById('inv-vat').value;
-    const ref      = document.getElementById('inv-ref').value.trim();
-    const notes    = document.getElementById('inv-notes').value.trim();
-
-    if (!client || !email || !site || !work || !amount || !due) {
-      setStatus('inv-status', false, '⚠️ Please fill in all required fields (marked with *)'); return;
-    }
+    const client = document.getElementById('inv-client').value.trim();
+    const email = document.getElementById('inv-email').value.trim();
+    const site = document.getElementById('inv-site').value.trim();
+    const work = document.getElementById('inv-work').value.trim();
+    const amount = document.getElementById('inv-amount').value.trim();
+    const due = document.getElementById('inv-due').value.trim();
+    const vat = document.getElementById('inv-vat').value;
+    if (!client||!email||!site||!work||!amount||!due) { setStatus('inv-status',false,'⚠️ Please fill in all required fields'); return; }
 
     const net = parseFloat(amount);
-    const vatRate = vat === 'exempt' ? 0 : parseFloat(vat) / 100;
-    const vatAmt = vat === 'exempt' ? 0 : net * vatRate;
+    const vatRate = vat==='exempt' ? 0 : parseFloat(vat)/100;
+    const vatAmt = net * vatRate;
     const gross = net + vatAmt;
     const invNum = 'INV-' + Date.now().toString().slice(-5);
 
-    const payload = {
-      submittedAt: new Date().toISOString(), submittedBy: 'Thalos Ltd',
-      invoiceNumber: invNum, clientName: client, clientEmail: email,
-      clientWhatsApp: whatsapp || null, site, workDescription: work,
-      poReference: ref || null, notes: notes || null,
-      netAmount: net.toFixed(2), vatRate: vat, vatAmount: vatAmt.toFixed(2),
-      grossAmount: gross.toFixed(2), currency: 'GBP',
-      dueDateISO: due, dueDateUK: due.split('-').reverse().join('/'),
-      chaseSchedule: { reminder1: '3 days before due', reminder2: 'on due date', overdueChase: 'every 7 days after due' }
-    };
-
     setBtnLoading('inv-submit-btn', true);
-    const ok = await fireWebhook(WEBHOOKS.newInvoice, payload);
+
+    const { error } = await sb.from('invoices').insert({
+      company_id: currentCompany.id, invoice_number: invNum,
+      client_name: client, client_email: email,
+      client_whatsapp: document.getElementById('inv-whatsapp').value.trim() || null,
+      site, work_description: work, po_reference: document.getElementById('inv-ref').value.trim() || null,
+      notes: document.getElementById('inv-notes').value.trim() || null,
+      net_amount: net.toFixed(2), vat_rate: vat, vat_amount: vatAmt.toFixed(2),
+      gross_amount: gross.toFixed(2), due_date: due, status: 'sent'
+    });
+
+    // Also fire webhook for n8n automation
+    fireWebhook(WEBHOOKS.newInvoice, {
+      submittedAt: new Date().toISOString(), submittedBy: currentCompany.name,
+      invoiceNumber: invNum, clientName: client, clientEmail: email, site, workDescription: work,
+      netAmount: net.toFixed(2), vatRate: vat, grossAmount: gross.toFixed(2), dueDateISO: due,
+      dueDateUK: formatUKDate(due), chaseSchedule: { reminder1:'3 days before due', overdueChase:'every 7 days' }
+    });
+
     setBtnLoading('inv-submit-btn', false);
 
-    if (ok) {
-      setStatus('inv-status', true, '✅ Invoice sent to ' + client + ' — auto-chasers scheduled');
-      toast('✅ Invoice sent — reminders scheduled', 'success');
-
-      // Add card to money page
-      prependCard('invoice-list', `
-        <div class="card"><div class="c-head"><div><div class="c-t">${invNum}</div><div class="c-s">${site} — ${client}</div></div><div class="pill p-org">SENT</div></div><div class="amt">£${gross.toLocaleString('en-GB', {minimumFractionDigits:0, maximumFractionDigits:0})}</div><div class="row"><span class="rl">Due Date</span><span class="rv">${formatUKDate(due)}</span></div><div class="row"><span class="rl">Auto Reminder</span><span class="rv">3 days before due</span></div></div>
-      `);
-
-      setTimeout(() => go('page-money'), 1800);
-    } else {
-      setStatus('inv-status', false, '❌ Webhook failed — check your n8n URL. Payload logged to console.');
-      console.log('Invoice payload:', JSON.stringify(payload, null, 2));
-      toast('❌ Webhook failed — see console', 'error');
-    }
+    if (error) { setStatus('inv-status', false, '❌ Failed to save: ' + error.message); return; }
+    setStatus('inv-status', true, '✅ Invoice ' + invNum + ' sent to ' + client);
+    toast('✅ Invoice sent — saved to database', 'success');
+    setTimeout(() => go('page-money'), 1500);
   }
 
   // ═══ SUBMIT DIARY ══════════════════════════════════════════════════════════
   async function submitDiary() {
-    const site   = document.getElementById('diary-site').value.trim();
-    const date   = document.getElementById('diary-date').value;
+    const site = document.getElementById('diary-site').value.trim();
+    const email = document.getElementById('diary-email').value.trim();
+    const date = document.getElementById('diary-date').value;
     const labour = document.getElementById('diary-labour').value;
-    const work   = document.getElementById('diary-work').value.trim();
-    const email  = document.getElementById('diary-email').value.trim();
-    if (!site || !date || !labour || !work || !email) { setStatus('diary-status', false, '⚠️ Please fill in all required fields'); return; }
-
-    const progress = parseInt(document.getElementById('diary-progress').value);
-    const weather = document.getElementById('diary-weather').value;
-    const temp = document.getElementById('diary-temp').value;
-    const issues = document.getElementById('diary-issues').value.trim();
-
-    const payload = {
-      submittedAt: new Date().toISOString(), company_name: 'Thalos Ltd',
-      company_email: email, siteName: site, date, labourCount: parseInt(labour),
-      weather, temperature: temp || null, progressDescription: work,
-      progressPercent: progress, issues: issues || null,
-      foremanName: document.getElementById('diary-visitors').value.trim() || null,
-      plant: document.getElementById('diary-plant').value.trim() || null,
-      visitors: document.getElementById('diary-visitors').value.trim() || null,
-    };
+    const work = document.getElementById('diary-work').value.trim();
+    if (!site||!email||!date||!labour||!work) { setStatus('diary-status',false,'⚠️ Please fill in all required fields'); return; }
 
     setBtnLoading('diary-submit-btn', true);
-    const ok = await fireWebhook(WEBHOOKS.siteDiary, payload);
+    const { error } = await sb.from('diary_entries').insert({
+      company_id: currentCompany.id, site_name: site, client_email: email,
+      entry_date: date, labour_count: parseInt(labour),
+      weather: document.getElementById('diary-weather').value,
+      temperature: document.getElementById('diary-temp').value || null,
+      progress_description: work, progress_percent: parseInt(document.getElementById('diary-progress').value),
+      issues: document.getElementById('diary-issues').value.trim() || null,
+      plant: document.getElementById('diary-plant').value.trim() || null,
+      visitors: document.getElementById('diary-visitors').value.trim() || null,
+    });
+    fireWebhook(WEBHOOKS.siteDiary, { submittedAt:new Date().toISOString(), company_name:currentCompany.name, company_email:email, siteName:site, date, labourCount:parseInt(labour), weather:document.getElementById('diary-weather').value, progressDescription:work, progressPercent:parseInt(document.getElementById('diary-progress').value) });
     setBtnLoading('diary-submit-btn', false);
-
-    if (ok) {
-      setStatus('diary-status', true, '✅ Diary entry saved — PDF will be emailed to ' + email);
-      toast('✅ Diary entry saved', 'success');
-
-      const pColor = progress >= 80 ? 'var(--green)' : progress >= 50 ? 'var(--amber)' : 'var(--red)';
-      prependCard('diary-list', `
-        <div class="card" style="border-color:rgba(255,85,0,0.3)">
-          <div class="c-t" style="margin-bottom:12px">${site}</div>
-          <div class="row"><span class="rl">Labour on Site</span><span class="rv">${labour} operatives</span></div>
-          <div class="row"><span class="rl">Weather</span><span class="rv">${weather}${temp ? ', '+temp+'°C' : ''}</span></div>
-          <div class="row"><span class="rl">Progress</span><span class="rv">${progress}%</span></div>
-          ${issues ? '<div class="row"><span class="rl">Issues</span><span class="rv" style="color:var(--amber)">'+issues+'</span></div>' : ''}
-          <div style="margin-top:12px"><div style="display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-bottom:4px"><span>Progress</span><span style="color:${pColor}">${progress}%</span></div><div class="pbar"><div class="pfil" style="width:${progress}%;background:${pColor}"></div></div></div>
-        </div>
-      `);
-
-      setTimeout(() => go('page-diary'), 1800);
-    } else {
-      setStatus('diary-status', false, '❌ Webhook failed — check n8n URL. Payload logged to console.');
-      console.log('Diary payload:', JSON.stringify(payload, null, 2));
-      toast('❌ Webhook failed', 'error');
-    }
+    if (error) { setStatus('diary-status',false,'❌ '+error.message); return; }
+    setStatus('diary-status',true,'✅ Diary entry saved — PDF will be emailed to '+email);
+    toast('✅ Diary entry saved','success');
+    setTimeout(()=>go('page-diary'),1500);
   }
 
   // ═══ SUBMIT VARIATION ══════════════════════════════════════════════════════
   async function submitVariation() {
-    const site = document.getElementById('var-site').value.trim();
-    const mc   = document.getElementById('var-mc').value.trim();
-    const email= document.getElementById('var-mc-email').value.trim();
-    const desc = document.getElementById('var-desc').value.trim();
-    const cost = document.getElementById('var-cost').value;
-    const date = document.getElementById('var-date').value;
-    const by   = document.getElementById('var-by').value.trim();
-    if (!site||!mc||!email||!desc||!cost||!date||!by) { setStatus('var-status',false,'⚠️ Please fill in all required fields'); return; }
-
-    const varRef = 'VAR-' + Date.now().toString().slice(-4);
-    const payload = {
-      submittedAt: new Date().toISOString(), company: 'Thalos Ltd',
-      variationRef: varRef, siteName: site, contractorName: mc,
-      contractorEmail: email, foremanName: by, dateLogged: date,
-      variationDescription: desc,
-      verbalInstructionBy: document.getElementById('var-instruction').value.trim() || null,
-      estimatedCost: parseFloat(cost).toFixed(2),
-      hoursSpent: document.getElementById('var-hours').value || null,
-      currency: 'GBP',
-      chaseSchedule: { autoChase: '3 days if no response', escalate: '7 days if no response' }
-    };
-
-    setBtnLoading('var-submit-btn', true);
-    const ok = await fireWebhook(WEBHOOKS.logVariation, payload);
-    setBtnLoading('var-submit-btn', false);
-
-    if (ok) {
-      setStatus('var-status', true, '✅ Variation ' + varRef + ' submitted — JCT notice sent to ' + mc);
-      toast('✅ Variation submitted', 'success');
-
-      prependCard('variation-list', `
-        <div class="card"><div class="c-head"><div><div class="c-t">${varRef}</div><div class="c-s">${site}</div></div><div class="pill p-amb">PENDING</div></div><div class="amt a">£${parseFloat(cost).toLocaleString('en-GB', {minimumFractionDigits:0})}</div><div class="row"><span class="rl">Work</span><span class="rv">${desc.substring(0, 50)}${desc.length > 50 ? '...' : ''}</span></div><div class="row"><span class="rl">Logged By</span><span class="rv">${by}</span></div><div class="row"><span class="rl">Sent To</span><span class="rv">${mc}</span></div><div class="brow"><button class="btn btn-s" onclick="toast('📧 Chaser sent','success')">Send Chaser</button><button class="btn btn-g" onclick="toast('📄 Opening PDF...','info')">View PDF</button></div></div>
-      `);
-
-      setTimeout(() => go('page-variations'), 1800);
-    } else {
-      setStatus('var-status', false, '❌ Webhook failed — payload logged to console.');
-      console.log('Variation payload:', JSON.stringify(payload, null, 2));
-      toast('❌ Webhook failed', 'error');
-    }
+    const site=document.getElementById('var-site').value.trim(), mc=document.getElementById('var-mc').value.trim(),
+      email=document.getElementById('var-mc-email').value.trim(), desc=document.getElementById('var-desc').value.trim(),
+      cost=document.getElementById('var-cost').value, date=document.getElementById('var-date').value,
+      by=document.getElementById('var-by').value.trim();
+    if(!site||!mc||!email||!desc||!cost||!date||!by){setStatus('var-status',false,'⚠️ Please fill in all required fields');return;}
+    const varRef='VAR-'+Date.now().toString().slice(-4);
+    setBtnLoading('var-submit-btn',true);
+    const{error}=await sb.from('variations').insert({
+      company_id:currentCompany.id,variation_ref:varRef,site_name:site,contractor_name:mc,
+      contractor_email:email,foreman_name:by,date_logged:date,description:desc,
+      verbal_instruction_by:document.getElementById('var-instruction').value.trim()||null,
+      estimated_cost:parseFloat(cost).toFixed(2),hours_spent:document.getElementById('var-hours').value||null
+    });
+    fireWebhook(WEBHOOKS.logVariation,{submittedAt:new Date().toISOString(),company:currentCompany.name,variationRef:varRef,siteName:site,contractorName:mc,contractorEmail:email,foremanName:by,dateLogged:date,variationDescription:desc,estimatedCost:parseFloat(cost).toFixed(2)});
+    setBtnLoading('var-submit-btn',false);
+    if(error){setStatus('var-status',false,'❌ '+error.message);return;}
+    setStatus('var-status',true,'✅ Variation '+varRef+' submitted — JCT notice sent to '+mc);
+    toast('✅ Variation submitted','success');
+    setTimeout(()=>go('page-variations'),1500);
   }
 
   // ═══ SUBMIT RFI ════════════════════════════════════════════════════════════
   async function submitRfi() {
-    const site    = document.getElementById('rfi-site').value.trim();
-    const to      = document.getElementById('rfi-to').value.trim();
-    const email   = document.getElementById('rfi-email').value.trim();
-    const subject = document.getElementById('rfi-subject').value.trim();
-    const desc    = document.getElementById('rfi-desc').value.trim();
-    if (!site||!to||!email||!subject||!desc) { setStatus('rfi-status',false,'⚠️ Please fill in all required fields'); return; }
-
-    const blocked = document.querySelector('input[name="rfi-blocked"]:checked')?.value || 'no';
-    const rfiRef = 'RFI-' + Date.now().toString().slice(-4);
-
-    const payload = {
-      submittedAt: new Date().toISOString(), company: 'Thalos Ltd',
-      rfiRef, site, addressedTo: to, contactEmail: email,
-      subject, description: desc, workBlocked: blocked === 'yes',
-      responseDeadline: document.getElementById('rfi-deadline').value || null,
-      chaseSchedule: { autoChase: 'every 3 days', escalate: 'at deadline if unanswered' }
-    };
-
-    setBtnLoading('rfi-submit-btn', true);
-    const ok = await fireWebhook(WEBHOOKS.newRfi, payload);
-    setBtnLoading('rfi-submit-btn', false);
-
-    if (ok) {
-      setStatus('rfi-status', true, '✅ ' + rfiRef + ' sent to ' + to + ' — auto-chase scheduled');
-      toast('✅ RFI sent', 'success');
-
-      prependCard('rfi-list', `
-        <div class="card"><div class="c-head"><div><div class="c-t">${rfiRef}</div><div class="c-s">${site}</div></div><div class="pill p-org">SENT</div></div><div class="row"><span class="rl">Question</span><span class="rv">${subject}</span></div><div class="row"><span class="rl">Sent To</span><span class="rv">${to}</span></div><div class="row"><span class="rl">Work Blocked</span><span class="rv" style="color:${blocked==='yes' ? 'var(--red)' : 'var(--green)'}">${blocked==='yes' ? 'Yes — on record' : 'No'}</span></div><div class="brow"><button class="btn btn-s" onclick="toast('📧 Chaser sent','success')">Chase</button></div></div>
-      `);
-
-      setTimeout(() => go('page-rfi'), 1800);
-    } else {
-      setStatus('rfi-status', false, '❌ Webhook failed — payload logged to console.');
-      console.log('RFI payload:', JSON.stringify(payload, null, 2));
-      toast('❌ Webhook failed', 'error');
-    }
+    const site=document.getElementById('rfi-site').value.trim(),to=document.getElementById('rfi-to').value.trim(),
+      email=document.getElementById('rfi-email').value.trim(),subject=document.getElementById('rfi-subject').value.trim(),
+      desc=document.getElementById('rfi-desc').value.trim();
+    if(!site||!to||!email||!subject||!desc){setStatus('rfi-status',false,'⚠️ Please fill in all required fields');return;}
+    const blocked=document.querySelector('input[name="rfi-blocked"]:checked')?.value||'no';
+    const rfiRef='RFI-'+Date.now().toString().slice(-4);
+    setBtnLoading('rfi-submit-btn',true);
+    const{error}=await sb.from('rfis').insert({
+      company_id:currentCompany.id,rfi_ref:rfiRef,site,addressed_to:to,contact_email:email,
+      subject,description:desc,work_blocked:blocked==='yes',
+      response_deadline:document.getElementById('rfi-deadline').value||null
+    });
+    fireWebhook(WEBHOOKS.newRfi,{submittedAt:new Date().toISOString(),company:currentCompany.name,rfiRef,site,addressedTo:to,contactEmail:email,subject,description:desc,workBlocked:blocked==='yes'});
+    setBtnLoading('rfi-submit-btn',false);
+    if(error){setStatus('rfi-status',false,'❌ '+error.message);return;}
+    setStatus('rfi-status',true,'✅ '+rfiRef+' sent to '+to+' — auto-chase scheduled');
+    toast('✅ RFI sent','success');
+    setTimeout(()=>go('page-rfi'),1500);
   }
 
   // ═══ SUBMIT SNAG ═══════════════════════════════════════════════════════════
   async function submitSnag() {
-    const site     = document.getElementById('snag-site').value.trim();
-    const location = document.getElementById('snag-location').value.trim();
-    const desc     = document.getElementById('snag-desc').value.trim();
-    if (!site||!location||!desc) { setStatus('snag-status',false,'⚠️ Please fill in all required fields'); return; }
-
-    const raisedBy = document.querySelector('input[name="snag-raised"]:checked')?.value || 'us';
-    const snagRef = 'SNR-' + Date.now().toString().slice(-4);
-    const priority = document.getElementById('snag-priority').value;
-    const assigned = document.getElementById('snag-assigned').value.trim();
-
-    const payload = {
-      submittedAt: new Date().toISOString(), company: 'Thalos Ltd',
-      snagRef, site, location, description: desc, raisedBy,
-      assignedTo: assigned || null,
-      fixByDate: document.getElementById('snag-deadline').value || null,
-      priority, status: 'open'
-    };
-
-    setBtnLoading('snag-submit-btn', true);
-    const ok = await fireWebhook(WEBHOOKS.logSnag, payload);
-    setBtnLoading('snag-submit-btn', false);
-
-    if (ok) {
-      setStatus('snag-status', true, '✅ ' + snagRef + ' logged — ' + (assigned || 'unassigned'));
-      toast('✅ Snag logged', 'success');
-
-      const prioColors = { critical: 'var(--red)', high: 'var(--red)', medium: 'var(--amber)', low: 'var(--muted)' };
-      prependCard('snag-list', `
-        <div class="card"><div class="c-head"><div><div class="c-t">${snagRef}</div><div class="c-s">${site} — ${location}</div></div><div class="pill p-org">OPEN</div></div><div class="row"><span class="rl">Issue</span><span class="rv">${desc.substring(0,50)}${desc.length>50?'...':''}</span></div><div class="row"><span class="rl">Priority</span><span class="rv" style="color:${prioColors[priority] || 'var(--amber)'}">${priority.charAt(0).toUpperCase()+priority.slice(1)}</span></div>${assigned ? '<div class="row"><span class="rl">Assigned To</span><span class="rv">'+assigned+'</span></div>' : ''}<div class="brow"><button class="btn btn-grn" onclick="modal(\'Mark Complete?\',\'Snag marked complete.\',()=>toast(\'✅ Snag closed\',\'success\'))">Mark Complete</button></div></div>
-      `);
-
-      setTimeout(() => go('page-snags'), 1800);
-    } else {
-      setStatus('snag-status', false, '❌ Webhook failed — payload logged to console.');
-      console.log('Snag payload:', JSON.stringify(payload, null, 2));
-      toast('❌ Webhook failed', 'error');
-    }
+    const site=document.getElementById('snag-site').value.trim(),location=document.getElementById('snag-location').value.trim(),
+      desc=document.getElementById('snag-desc').value.trim();
+    if(!site||!location||!desc){setStatus('snag-status',false,'⚠️ Please fill in all required fields');return;}
+    const raisedBy=document.querySelector('input[name="snag-raised"]:checked')?.value||'us';
+    const snagRef='SNR-'+Date.now().toString().slice(-4);
+    setBtnLoading('snag-submit-btn',true);
+    const{error}=await sb.from('snags').insert({
+      company_id:currentCompany.id,snag_ref:snagRef,site,location,description:desc,raised_by:raisedBy,
+      assigned_to:document.getElementById('snag-assigned').value.trim()||null,
+      fix_by_date:document.getElementById('snag-deadline').value||null,
+      priority:document.getElementById('snag-priority').value
+    });
+    fireWebhook(WEBHOOKS.logSnag,{submittedAt:new Date().toISOString(),company:currentCompany.name,snagRef,site,location,description:desc});
+    setBtnLoading('snag-submit-btn',false);
+    if(error){setStatus('snag-status',false,'❌ '+error.message);return;}
+    setStatus('snag-status',true,'✅ '+snagRef+' logged');
+    toast('✅ Snag logged','success');
+    setTimeout(()=>go('page-snags'),1500);
   }
 
   // ═══ SUBMIT PROGRAMME ══════════════════════════════════════════════════════
   async function submitProgramme() {
-    const site   = document.getElementById('prog-site').value.trim();
-    const date   = document.getElementById('prog-date').value;
-    if (!site||!date) { setStatus('prog-status',false,'⚠️ Please fill in all required fields'); return; }
-
-    const notice = document.querySelector('input[name="prog-notice"]:checked')?.value || 'no';
-    const actual  = document.getElementById('prog-actual').value;
-    const planned = document.getElementById('prog-planned').value;
-    const delta   = parseInt(actual) - parseInt(planned);
-
-    const payload = {
-      submittedAt: new Date().toISOString(), company: 'Thalos Ltd',
-      site, updateDate: date, actualPct: parseInt(actual), plannedPct: parseInt(planned),
-      variancePct: delta, status: delta >= 0 ? 'on-track' : delta >= -10 ? 'at-risk' : 'delayed',
-      workCompleted: document.getElementById('prog-completed').value.trim() || null,
-      delayReason: document.getElementById('prog-delay').value.trim() || null,
-      issueDelayNotice: notice === 'yes',
-      nextMilestone: document.getElementById('prog-milestone').value.trim() || null,
-    };
-
-    setBtnLoading('prog-submit-btn', true);
-    const ok = await fireWebhook(WEBHOOKS.programmeUpdate, payload);
-    setBtnLoading('prog-submit-btn', false);
-
-    if (ok) {
-      setStatus('prog-status', true, '✅ Progress updated — ' + actual + '% actual vs ' + planned + '% planned' + (notice==='yes' ? ' · Delay notice sent' : ''));
-      toast('✅ Programme updated', 'success');
-
-      const statusLabel = delta >= 0 ? 'ON TRACK' : delta >= -10 ? 'AT RISK' : 'DELAYED';
-      const statusClass = delta >= 0 ? 'p-grn' : delta >= -10 ? 'p-amb' : 'p-red';
-      const barColor = delta >= 0 ? 'var(--green)' : delta >= -10 ? 'var(--amber)' : 'var(--red)';
-
-      prependCard('programme-list', `
-        <div class="card"><div class="c-head"><div class="c-t">${site}</div><div class="pill ${statusClass}">${statusLabel}</div></div><div style="margin-top:8px"><div style="display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-bottom:4px"><span>Planned</span><span>${planned}%</span></div><div class="pbar"><div class="pfil" style="width:${planned}%;background:var(--subtle)"></div></div><div style="display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin:10px 0 4px"><span>Actual</span><span style="color:${barColor}">${actual}%</span></div><div class="pbar"><div class="pfil" style="width:${actual}%;background:${barColor}"></div></div></div></div>
-      `);
-
-      setTimeout(() => go('page-programme'), 1800);
-    } else {
-      setStatus('prog-status', false, '❌ Webhook failed — payload logged to console.');
-      console.log('Programme payload:', JSON.stringify(payload, null, 2));
-      toast('❌ Webhook failed', 'error');
-    }
+    const site=document.getElementById('prog-site').value.trim(),date=document.getElementById('prog-date').value;
+    if(!site||!date){setStatus('prog-status',false,'⚠️ Please fill in all required fields');return;}
+    const actual=parseInt(document.getElementById('prog-actual').value),planned=parseInt(document.getElementById('prog-planned').value);
+    const delta=actual-planned;
+    const notice=document.querySelector('input[name="prog-notice"]:checked')?.value||'no';
+    setBtnLoading('prog-submit-btn',true);
+    const{error}=await sb.from('programme_updates').insert({
+      company_id:currentCompany.id,site,update_date:date,actual_pct:actual,planned_pct:planned,
+      variance_pct:delta,status:delta>=0?'on-track':delta>=-10?'at-risk':'delayed',
+      work_completed:document.getElementById('prog-completed').value.trim()||null,
+      delay_reason:document.getElementById('prog-delay').value.trim()||null,
+      issue_delay_notice:notice==='yes',next_milestone:document.getElementById('prog-milestone').value.trim()||null
+    });
+    fireWebhook(WEBHOOKS.programmeUpdate,{submittedAt:new Date().toISOString(),company:currentCompany.name,site,actualPct:actual,plannedPct:planned});
+    setBtnLoading('prog-submit-btn',false);
+    if(error){setStatus('prog-status',false,'❌ '+error.message);return;}
+    setStatus('prog-status',true,'✅ Progress updated — '+actual+'% actual vs '+planned+'% planned');
+    toast('✅ Programme updated','success');
+    setTimeout(()=>go('page-programme'),1500);
   }
 
   // ═══ SET DEFAULT DATES ═════════════════════════════════════════════════════
   window.addEventListener('DOMContentLoaded', () => {
     const today = new Date().toISOString().split('T')[0];
-    ['diary-date','var-date','prog-date'].forEach(id => {
-      const el = document.getElementById(id);
-      if (el) el.value = today;
-    });
+    ['diary-date','var-date','prog-date'].forEach(id => { const el=document.getElementById(id); if(el) el.value=today; });
   });
 
   // ═══ DOCUMENT UPLOAD ═══════════════════════════════════════════════════════
   let docFileData = null;
-
   const DOC_ICONS = { pdf:'📄', jpg:'🖼️', jpeg:'🖼️', png:'🖼️', doc:'📝', docx:'📝', default:'📁' };
-  const DOC_EXPIRY_TYPES   = ['insurance','certification','cscs','contract'];
+  const DOC_EXPIRY_TYPES = ['insurance','certification','cscs','contract'];
   const DOC_OPERATIVE_TYPES = ['cscs'];
-  const DOC_PROVIDER_TYPES  = ['insurance','certification'];
+  const DOC_PROVIDER_TYPES = ['insurance','certification'];
 
-  function handleDocFile(input) {
-    const file = input.files[0];
-    if (!file) return;
-    if (file.size > 20 * 1024 * 1024) { setStatus('doc-status', false, '❌ File too large — max 20MB'); return; }
-    showDocPreview(file);
-  }
-
-  function handleDocDrop(e) {
-    e.preventDefault();
-    document.getElementById('doc-dropzone').style.borderColor = 'var(--border2)';
-    const file = e.dataTransfer.files[0];
-    if (file) showDocPreview(file);
-  }
+  function handleDocFile(input) { const f=input.files[0]; if(!f) return; if(f.size>20*1024*1024){setStatus('doc-status',false,'❌ File too large — max 20MB');return;} showDocPreview(f); }
+  function handleDocDrop(e) { e.preventDefault(); document.getElementById('doc-dropzone').style.borderColor='var(--border2)'; const f=e.dataTransfer.files[0]; if(f) showDocPreview(f); }
 
   function showDocPreview(file) {
-    const ext = file.name.split('.').pop().toLowerCase();
-    const icon = DOC_ICONS[ext] || DOC_ICONS.default;
-    const sizeMB = (file.size / (1024*1024)).toFixed(2);
-
-    document.getElementById('doc-preview-icon').textContent = icon;
-    document.getElementById('doc-preview-name').textContent = file.name;
-    document.getElementById('doc-preview-size').textContent = sizeMB + ' MB · ' + ext.toUpperCase();
-    document.getElementById('doc-preview').style.display = 'block';
-    document.getElementById('doc-dropzone').style.display = 'none';
-
-    if (['jpg','jpeg','png'].includes(ext)) {
-      const reader = new FileReader();
-      reader.onload = e => {
-        document.getElementById('doc-img-el').src = e.target.result;
-        document.getElementById('doc-img-preview').style.display = 'block';
-        docFileData = { name: file.name, type: file.type, size: file.size, ext, base64: e.target.result };
-      };
-      reader.readAsDataURL(file);
-    } else {
-      docFileData = { name: file.name, type: file.type, size: file.size, ext, base64: null };
-    }
-
-    const nameEl = document.getElementById('doc-name');
-    if (!nameEl.value) nameEl.value = file.name.replace(/\.[^/.]+$/, '');
+    const ext=file.name.split('.').pop().toLowerCase(); const icon=DOC_ICONS[ext]||DOC_ICONS.default;
+    document.getElementById('doc-preview-icon').textContent=icon;
+    document.getElementById('doc-preview-name').textContent=file.name;
+    document.getElementById('doc-preview-size').textContent=(file.size/(1024*1024)).toFixed(2)+' MB · '+ext.toUpperCase();
+    document.getElementById('doc-preview').style.display='block';
+    document.getElementById('doc-dropzone').style.display='none';
+    if(['jpg','jpeg','png'].includes(ext)){const r=new FileReader();r.onload=e=>{document.getElementById('doc-img-el').src=e.target.result;document.getElementById('doc-img-preview').style.display='block';docFileData={name:file.name,type:file.type,size:file.size,ext,base64:e.target.result};};r.readAsDataURL(file);}
+    else{docFileData={name:file.name,type:file.type,size:file.size,ext,base64:null};}
+    const n=document.getElementById('doc-name'); if(!n.value) n.value=file.name.replace(/\.[^/.]+$/,'');
   }
-
-  function clearDocFile() {
-    docFileData = null;
-    document.getElementById('doc-preview').style.display = 'none';
-    document.getElementById('doc-img-preview').style.display = 'none';
-    document.getElementById('doc-dropzone').style.display = 'block';
-    document.getElementById('doc-file-input').value = '';
-  }
-
-  function updateDocFields() {
-    const type = document.getElementById('doc-type').value;
-    document.getElementById('doc-expiry-group').style.display    = DOC_EXPIRY_TYPES.includes(type)   ? 'block' : 'none';
-    document.getElementById('doc-operative-group').style.display = DOC_OPERATIVE_TYPES.includes(type) ? 'block' : 'none';
-    document.getElementById('doc-provider-group').style.display  = DOC_PROVIDER_TYPES.includes(type)  ? 'block' : 'none';
-  }
-
-  function toggleDocShare() {
-    const current = document.getElementById('doc-shareable').value === 'true';
-    const next = !current;
-    document.getElementById('doc-shareable').value = next;
-    document.getElementById('doc-share-toggle').style.background = next ? 'var(--orange)' : 'var(--border2)';
-    document.getElementById('doc-share-knob').style.left = next ? '21px' : '3px';
-  }
+  function clearDocFile(){docFileData=null;document.getElementById('doc-preview').style.display='none';document.getElementById('doc-img-preview').style.display='none';document.getElementById('doc-dropzone').style.display='block';document.getElementById('doc-file-input').value='';}
+  function updateDocFields(){const t=document.getElementById('doc-type').value;document.getElementById('doc-expiry-group').style.display=DOC_EXPIRY_TYPES.includes(t)?'block':'none';document.getElementById('doc-operative-group').style.display=DOC_OPERATIVE_TYPES.includes(t)?'block':'none';document.getElementById('doc-provider-group').style.display=DOC_PROVIDER_TYPES.includes(t)?'block':'none';}
+  function toggleDocShare(){const c=document.getElementById('doc-shareable').value==='true';const n=!c;document.getElementById('doc-shareable').value=n;document.getElementById('doc-share-toggle').style.background=n?'var(--orange)':'var(--border2)';document.getElementById('doc-share-knob').style.left=n?'21px':'3px';}
 
   async function submitDocument() {
-    const type = document.getElementById('doc-type').value;
-    const name = document.getElementById('doc-name').value.trim();
-    if (!docFileData) { setStatus('doc-status', false, '⚠️ Please select a file to upload'); return; }
-    if (!type)        { setStatus('doc-status', false, '⚠️ Please select a document type'); return; }
-    if (!name)        { setStatus('doc-status', false, '⚠️ Please enter a document name'); return; }
+    const type=document.getElementById('doc-type').value,name=document.getElementById('doc-name').value.trim();
+    if(!docFileData){setStatus('doc-status',false,'⚠️ Please select a file');return;}
+    if(!type){setStatus('doc-status',false,'⚠️ Please select a document type');return;}
+    if(!name){setStatus('doc-status',false,'⚠️ Please enter a document name');return;}
+    setBtnLoading('doc-submit-btn',true);
+    const{error}=await sb.from('documents').insert({
+      company_id:currentCompany.id,document_type:type,document_name:name,
+      file_name:docFileData.name,file_type:docFileData.type,file_size_bytes:docFileData.size,file_ext:docFileData.ext,
+      linked_site:document.getElementById('doc-site').value.trim()||null,
+      expiry_date:document.getElementById('doc-expiry')?.value||null,
+      alert_days_before:document.getElementById('doc-alert')?.value||null,
+      operative:document.getElementById('doc-operative')?.value.trim()||null,
+      provider:document.getElementById('doc-provider')?.value.trim()||null,
+      reference:document.getElementById('doc-ref')?.value.trim()||null,
+      notes:document.getElementById('doc-notes').value.trim()||null,
+      shareable:document.getElementById('doc-shareable').value==='true'
+    });
+    setBtnLoading('doc-submit-btn',false);
+    if(error){setStatus('doc-status',false,'❌ '+error.message);return;}
+    setStatus('doc-status',true,'✅ '+name+' uploaded to your document vault');
+    toast('✅ Document saved','success');
+    setTimeout(()=>go('page-documents'),1500);
+  }
 
-    const payload = {
-      submittedAt: new Date().toISOString(), company: 'Thalos Ltd',
-      documentType: type, documentName: name, fileName: docFileData.name,
-      fileType: docFileData.type, fileSizeBytes: docFileData.size, fileExt: docFileData.ext,
-      linkedSite: document.getElementById('doc-site').value.trim() || null,
-      expiryDate: document.getElementById('doc-expiry')?.value || null,
-      alertDaysBefore: document.getElementById('doc-alert')?.value || null,
-      operative: document.getElementById('doc-operative')?.value.trim() || null,
-      provider: document.getElementById('doc-provider')?.value.trim() || null,
-      reference: document.getElementById('doc-ref')?.value.trim() || null,
-      notes: document.getElementById('doc-notes').value.trim() || null,
-      shareable: document.getElementById('doc-shareable').value === 'true',
-      fileData: docFileData.base64 || null,
+  // ═══ SETTINGS ══════════════════════════════════════════════════════════════
+  // Override the settings save button — find it and replace its onclick
+  document.querySelector('#page-settings .btn-p')?.addEventListener('click', async function(e) {
+    e.preventDefault();
+    const inputs = document.querySelectorAll('#page-settings .finp');
+    const { error } = await sb.from('companies').update({
+      name: inputs[0]?.value || '', email: inputs[1]?.value || '',
+      phone: inputs[2]?.value || '', sort_code: inputs[3]?.value || '',
+      account_number: inputs[4]?.value || ''
+    }).eq('id', currentCompany.id);
+    if (error) { toast('❌ Failed to save','error'); return; }
+    currentCompany.name = inputs[0]?.value || '';
+    document.getElementById('home-company-name').textContent = currentCompany.name;
+    toast('✅ Settings saved','success');
+  });
+
+  // Sign out
+  const signOutBtn = document.querySelector('#page-settings .btn-d');
+  if (signOutBtn) {
+    signOutBtn.onclick = () => {
+      modal('Sign Out?','You will be returned to the login screen.', async () => {
+        await sb.auth.signOut();
+        currentUser = null; currentCompany = null;
+        go('page-login');
+        toast('👋 Signed out','info');
+      });
     };
-
-    setBtnLoading('doc-submit-btn', true);
-    const ok = await fireWebhook(WEBHOOKS.uploadDocument, payload);
-    setBtnLoading('doc-submit-btn', false);
-
-    if (ok) {
-      setStatus('doc-status', true, '✅ ' + name + ' uploaded to your document vault' + (payload.expiryDate ? ' · Expiry alert set' : ''));
-      toast('✅ Document saved', 'success');
-
-      prependCard('document-list', `
-        <div class="card"><div class="c-head"><div class="c-t">${name}</div><div class="pill p-grn">UPLOADED</div></div><div class="row"><span class="rl">Type</span><span class="rv">${type.charAt(0).toUpperCase()+type.slice(1)}</span></div>${payload.expiryDate ? '<div class="row"><span class="rl">Expires</span><span class="rv">'+formatUKDate(payload.expiryDate)+'</span></div>' : ''}<div class="brow"><button class="btn btn-s" onclick="toast(\'📎 Sharing...\',\'info\')">Share</button><button class="btn btn-g" onclick="toast(\'📄 Opening...\',\'info\')">View</button></div></div>
-      `);
-
-      setTimeout(() => go('page-documents'), 1800);
-    } else {
-      setStatus('doc-status', false, '❌ Webhook failed — check n8n URL. Payload logged to console.');
-      console.log('Document payload:', JSON.stringify({...payload, fileData: payload.fileData ? '[base64 truncated]' : null}, null, 2));
-      toast('❌ Upload failed', 'error');
-    }
   }
 
   // ═══ BILLING ═══════════════════════════════════════════════════════════════
-  const PLANS = {
-    starter: { name: 'STARTER', monthly: 59, annual: 47 },
-    pro:     { name: 'PRO',     monthly: 119, annual: 95 },
-  };
-
-  let billingCycle = 'monthly';
-  let selectedPlan = 'pro';
-
-  const STRIPE_LINKS = {
-    starter_monthly: 'https://buy.stripe.com/YOUR_STARTER_MONTHLY',
-    starter_annual:  'https://buy.stripe.com/YOUR_STARTER_ANNUAL',
-    pro_monthly:     'https://buy.stripe.com/YOUR_PRO_MONTHLY',
-    pro_annual:      'https://buy.stripe.com/YOUR_PRO_ANNUAL',
-  };
+  const PLANS = { starter:{name:'STARTER',monthly:59,annual:47}, pro:{name:'PRO',monthly:119,annual:95} };
+  let billingCycle='monthly', selectedPlan='pro';
+  const mnames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
   function setBilling(cycle) {
-    billingCycle = cycle;
-    const isAnnual = cycle === 'annual';
-    document.getElementById('tog-monthly').style.background = isAnnual ? 'transparent' : 'var(--orange)';
-    document.getElementById('tog-monthly').style.color = isAnnual ? 'var(--muted)' : 'white';
-    document.getElementById('tog-annual').style.background = isAnnual ? 'var(--orange)' : 'transparent';
-    document.getElementById('tog-annual').style.color = isAnnual ? 'white' : 'var(--muted)';
-    Object.keys(PLANS).forEach(key => {
-      const p = PLANS[key];
-      const price = isAnnual ? p.annual : p.monthly;
-      const el = document.getElementById('price-' + key);
-      if (el) el.textContent = '£' + price;
-    });
+    billingCycle=cycle; const a=cycle==='annual';
+    document.getElementById('tog-monthly').style.background=a?'transparent':'var(--orange)';
+    document.getElementById('tog-monthly').style.color=a?'var(--muted)':'white';
+    document.getElementById('tog-annual').style.background=a?'var(--orange)':'transparent';
+    document.getElementById('tog-annual').style.color=a?'white':'var(--muted)';
+    Object.keys(PLANS).forEach(k=>{const p=PLANS[k];const el=document.getElementById('price-'+k);if(el)el.textContent='£'+(a?p.annual:p.monthly);});
   }
-
-  function selectPlan(plan) { selectedPlan = plan; }
-
+  function selectPlan(p){selectedPlan=p;}
   function openPayment(plan) {
-    selectedPlan = plan;
-    const p = PLANS[plan];
-    const price = billingCycle === 'annual' ? p.annual : p.monthly;
-    const cycleLabel = billingCycle === 'annual' ? '/month (billed annually)' : '/month';
-
-    document.getElementById('pm-plan-name').textContent = p.name;
-    document.getElementById('pm-plan-name').style.color = plan === 'pro' ? 'var(--orange)' : 'var(--text)';
-    document.getElementById('pm-price').textContent = '£' + price;
-    document.getElementById('pm-cycle').textContent = cycleLabel;
-    document.getElementById('pm-summary-plan').textContent = p.name + ' — ' + (billingCycle === 'annual' ? 'Annual' : 'Monthly');
-
-    const chargeDate = new Date();
-    chargeDate.setDate(chargeDate.getDate() + 14);
-    const uk = chargeDate.getDate() + ' ' + mnames[chargeDate.getMonth()] + ' ' + chargeDate.getFullYear();
-    document.getElementById('pm-first-charge').textContent = '£' + (billingCycle === 'annual' ? price * 12 : price) + ' on ' + uk;
-
-    document.getElementById('payment-modal').style.display = 'flex';
+    selectedPlan=plan;const p=PLANS[plan];const price=billingCycle==='annual'?p.annual:p.monthly;
+    document.getElementById('pm-plan-name').textContent=p.name;
+    document.getElementById('pm-plan-name').style.color=plan==='pro'?'var(--orange)':'var(--text)';
+    document.getElementById('pm-price').textContent='£'+price;
+    document.getElementById('pm-cycle').textContent=billingCycle==='annual'?'/month (billed annually)':'/month';
+    document.getElementById('pm-summary-plan').textContent=p.name+' — '+(billingCycle==='annual'?'Annual':'Monthly');
+    const cd=new Date();cd.setDate(cd.getDate()+14);
+    document.getElementById('pm-first-charge').textContent='£'+(billingCycle==='annual'?price*12:price)+' on '+cd.getDate()+' '+mnames[cd.getMonth()]+' '+cd.getFullYear();
+    document.getElementById('payment-modal').style.display='flex';
   }
-
-  function closePayment() { document.getElementById('payment-modal').style.display = 'none'; }
-
-  function confirmPayment() {
-    // When Stripe is live, redirect: window.location.href = STRIPE_LINKS[selectedPlan + '_' + billingCycle];
-    closePayment();
-    const p = PLANS[selectedPlan];
-    document.getElementById('plan-name-display').textContent = p.name;
-    const price = billingCycle === 'annual' ? p.annual : p.monthly;
-    document.getElementById('plan-price-display').textContent = '£' + price;
-    toast('🎉 Subscribed to ' + p.name + ' — welcome aboard!', 'success');
-  }
-
-  document.getElementById('payment-modal').addEventListener('click', function(e) {
-    if (e.target === this) closePayment();
-  });
+  function closePayment(){document.getElementById('payment-modal').style.display='none';}
+  function confirmPayment(){closePayment();const p=PLANS[selectedPlan];document.getElementById('plan-name-display').textContent=p.name;document.getElementById('plan-price-display').textContent='£'+(billingCycle==='annual'?p.annual:p.monthly);toast('🎉 Subscribed to '+p.name,'success');}
+  document.getElementById('payment-modal').addEventListener('click',function(e){if(e.target===this)closePayment();});
 
 </script>
 </body>
