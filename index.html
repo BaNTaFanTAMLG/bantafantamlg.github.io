@@ -247,6 +247,16 @@ textarea.finp { resize:vertical; min-height:90px; }
 .empty-state { text-align:center; padding:32px 20px; color:var(--muted); }
 .empty-state-ico { font-size:40px; margin-bottom:12px; opacity:0.5; }
 .empty-state-msg { font-size:13px; line-height:1.5; }
+
+/* ═══ LOCKED MODULE ═══ */
+.mod.locked { opacity:0.45; pointer-events:none; position:relative; }
+.mod.locked::after { content:'PRO'; position:absolute; top:12px; right:12px; font-size:9px; font-weight:700; letter-spacing:1px; padding:3px 8px; border-radius:20px; background:var(--orange-soft); color:var(--orange); border:1px solid var(--orange-glow); }
+
+/* ═══ UPGRADE BANNER ═══ */
+.upgrade-banner { background:linear-gradient(135deg,rgba(255,85,0,0.1),rgba(255,181,71,0.06)); border:1px solid var(--orange-glow); border-radius:var(--radius-md); padding:16px; margin-bottom:16px; cursor:pointer; transition:all 0.2s; }
+.upgrade-banner:active { transform:scale(0.98); }
+.upgrade-banner-t { font-family:var(--font-display); font-size:15px; font-weight:700; color:var(--orange); margin-bottom:3px; }
+.upgrade-banner-s { font-size:12px; color:var(--muted); line-height:1.4; }
 </style>
 </head>
 <body>
@@ -307,6 +317,24 @@ textarea.finp { resize:vertical; min-height:90px; }
       <span style="color:var(--orange);cursor:pointer" onclick="showAuthForm('signin')">← Back to sign in</span>
     </div>
   </div>
+  <div class="login-form" id="login-form-reset" style="display:none">
+    <div id="reset-status" style="display:none;border-radius:var(--radius-sm);padding:12px 14px;margin-bottom:14px;font-size:13px;font-weight:500;line-height:1.4"></div>
+    <div style="font-family:var(--font-display);font-size:20px;font-weight:700;margin-bottom:6px;position:relative;z-index:1">Set New Password</div>
+    <div style="font-size:13px;color:var(--muted);margin-bottom:20px;position:relative;z-index:1">Enter your new password below</div>
+    <label class="login-lbl">New Password (min 6 characters)</label>
+    <input type="password" class="login-input" id="reset-password" placeholder="••••••••">
+    <label class="login-lbl">Confirm New Password</label>
+    <input type="password" class="login-input" id="reset-password-confirm" placeholder="••••••••">
+    <button class="login-btn" id="reset-btn" onclick="doResetPassword()">Update Password</button>
+  </div>
+  <div class="login-form" id="login-form-confirmed" style="display:none">
+    <div style="text-align:center;position:relative;z-index:1">
+      <div style="font-size:64px;margin-bottom:16px">✅</div>
+      <div style="font-family:var(--font-display);font-size:22px;font-weight:700;margin-bottom:8px">Email Confirmed</div>
+      <div style="font-size:14px;color:var(--muted);margin-bottom:28px;line-height:1.5">Your account is verified and ready to go. Welcome to TradeBase.</div>
+      <button class="login-btn" id="confirmed-continue-btn" onclick="confirmedContinue()">Continue to App →</button>
+    </div>
+  </div>
 </div>
 
 <!-- ═══════════════════════════════════════════════════════════════
@@ -333,16 +361,16 @@ textarea.finp { resize:vertical; min-height:90px; }
   </div>
   <div class="mod-wrap">
     <div class="sec-head">Your Modules</div>
-    <div class="mod-grid">
-      <div class="mod wide" onclick="go('page-money')"><div class="mod-accent" style="background:linear-gradient(90deg,var(--orange),var(--amber))"></div><span class="mod-ico">💷</span><div class="mod-name">Money Dashboard</div><div class="mod-desc">Invoices, payments and aged debt</div></div>
-      <div class="mod" onclick="go('page-variations')"><div class="mod-accent" style="background:var(--amber)"></div><span class="mod-ico">📋</span><div class="mod-name">Variations</div><div class="mod-desc">Log and protect extra works</div></div>
-      <div class="mod" onclick="go('page-diary')"><div class="mod-accent" style="background:var(--green)"></div><span class="mod-ico">📓</span><div class="mod-name">Site Diary</div><div class="mod-desc">Daily logs and evidence</div></div>
-      <div class="mod" onclick="go('page-rfi')"><div class="mod-accent" style="background:var(--red)"></div><span class="mod-ico">❓</span><div class="mod-name">RFI Tracker</div><div class="mod-desc">Never let an RFI go unanswered</div></div>
-      <div class="mod" onclick="go('page-snags')"><div class="mod-accent" style="background:var(--amber)"></div><span class="mod-ico">🔧</span><div class="mod-name">Snag Manager</div><div class="mod-desc">Close snags, release retention</div></div>
-      <div class="mod" onclick="go('page-programme')"><div class="mod-accent" style="background:var(--blue)"></div><span class="mod-ico">📊</span><div class="mod-name">Programme</div><div class="mod-desc">Planned vs actual progress</div></div>
-      <div class="mod" onclick="go('page-documents')"><div class="mod-accent" style="background:var(--subtle)"></div><span class="mod-ico">📁</span><div class="mod-name">Documents</div><div class="mod-desc">RAMS, insurance, contracts</div></div>
-      <div class="mod" onclick="go('page-reputation')"><div class="mod-accent" style="background:var(--amber)"></div><span class="mod-ico">⭐</span><div class="mod-name">Reputation</div><div class="mod-desc">Reviews and client feedback</div></div>
-      <div class="mod wide" onclick="go('page-director')"><div class="mod-accent" style="background:linear-gradient(90deg,var(--orange),var(--amber))"></div><span class="mod-ico">🎯</span><div class="mod-name">Director Report</div><div class="mod-desc">Full weekly business summary — money, variations, snags, programme, risk</div></div>
+    <div class="mod-grid" id="mod-grid">
+      <div class="mod wide" onclick="goModule('page-money')"><div class="mod-accent" style="background:linear-gradient(90deg,var(--orange),var(--amber))"></div><span class="mod-ico">💷</span><div class="mod-name">Money Dashboard</div><div class="mod-desc">Invoices, payments and aged debt</div></div>
+      <div class="mod" onclick="goModule('page-variations')"><div class="mod-accent" style="background:var(--amber)"></div><span class="mod-ico">📋</span><div class="mod-name">Variations</div><div class="mod-desc">Log and protect extra works</div></div>
+      <div class="mod" onclick="goModule('page-diary')"><div class="mod-accent" style="background:var(--green)"></div><span class="mod-ico">📓</span><div class="mod-name">Site Diary</div><div class="mod-desc">Daily logs and evidence</div></div>
+      <div class="mod" data-plan="pro" onclick="goModule('page-rfi')"><div class="mod-accent" style="background:var(--red)"></div><span class="mod-ico">❓</span><div class="mod-name">RFI Tracker</div><div class="mod-desc">Never let an RFI go unanswered</div></div>
+      <div class="mod" data-plan="pro" onclick="goModule('page-snags')"><div class="mod-accent" style="background:var(--amber)"></div><span class="mod-ico">🔧</span><div class="mod-name">Snag Manager</div><div class="mod-desc">Close snags, release retention</div></div>
+      <div class="mod" data-plan="pro" onclick="goModule('page-programme')"><div class="mod-accent" style="background:var(--blue)"></div><span class="mod-ico">📊</span><div class="mod-name">Programme</div><div class="mod-desc">Planned vs actual progress</div></div>
+      <div class="mod" data-plan="pro" onclick="goModule('page-documents')"><div class="mod-accent" style="background:var(--subtle)"></div><span class="mod-ico">📁</span><div class="mod-name">Documents</div><div class="mod-desc">RAMS, insurance, contracts</div></div>
+      <div class="mod" data-plan="pro" onclick="goModule('page-reputation')"><div class="mod-accent" style="background:var(--amber)"></div><span class="mod-ico">⭐</span><div class="mod-name">Reputation</div><div class="mod-desc">Reviews and client feedback</div></div>
+      <div class="mod wide" data-plan="pro" onclick="goModule('page-director')"><div class="mod-accent" style="background:linear-gradient(90deg,var(--orange),var(--amber))"></div><span class="mod-ico">🎯</span><div class="mod-name">Director Report</div><div class="mod-desc">Full weekly business summary — money, variations, snags, programme, risk</div></div>
     </div>
   </div>
 </div>
@@ -993,7 +1021,7 @@ textarea.finp { resize:vertical; min-height:90px; }
 
   // ═══ WEBHOOK URLS (still fire n8n automations alongside DB saves) ═════════
   const WEBHOOKS = {
-    newInvoice:       'https://ciccio123456.app.n8n.cloud/webhook/tally-invoice',
+    newInvoice:       'https://your-n8n-instance.com/webhook/new-invoice',
     chaseInvoice:     'https://your-n8n-instance.com/webhook/chase-invoice',
     logVariation:     'https://ciccio123456.app.n8n.cloud/webhook/variation-capture',
     newRfi:           'https://your-n8n-instance.com/webhook/new-rfi',
@@ -1011,12 +1039,43 @@ textarea.finp { resize:vertical; min-height:90px; }
   // ═══ PWA HARDENING ═════════════════════════════════════════════════════════
   if (screen.orientation && screen.orientation.lock) screen.orientation.lock('portrait').catch(()=>{});
 
+  // ═══ PLAN GATING ════════════════════════════════════════════════════════════
+  // Starter gets: Money, Variations, Site Diary
+  // Pro gets: everything
+  const STARTER_PAGES = ['page-money','page-new-invoice','page-variations','page-log-variation-new','page-diary','page-new-diary','page-home','page-settings','page-billing'];
+
+  function getUserPlan() {
+    return currentCompany?.plan || 'starter';
+  }
+
+  function applyPlanRestrictions() {
+    const plan = getUserPlan();
+    document.querySelectorAll('#mod-grid .mod[data-plan="pro"]').forEach(mod => {
+      if (plan === 'pro') { mod.classList.remove('locked'); }
+      else { mod.classList.add('locked'); }
+    });
+  }
+
+  function goModule(pageId) {
+    const plan = getUserPlan();
+    // Check if this page requires pro
+    if (plan !== 'pro' && !STARTER_PAGES.includes(pageId)) {
+      modal('Upgrade to Pro', 'This module is available on the Pro plan. Upgrade to unlock RFI Tracker, Snag Manager, Programme, Documents, Reputation and Director Report.', () => {
+        go('page-billing'); setNav(4);
+      });
+      return;
+    }
+    go(pageId);
+  }
+
   // ═══ AUTH FORMS ════════════════════════════════════════════════════════════
   function showAuthForm(type) {
     document.getElementById('login-form-signin').style.display = type === 'signin' ? 'block' : 'none';
     document.getElementById('login-form-signup').style.display = type === 'signup' ? 'block' : 'none';
     document.getElementById('login-form-forgot').style.display = type === 'forgot' ? 'block' : 'none';
-    ['auth-status','signup-status','forgot-status'].forEach(id => document.getElementById(id).style.display = 'none');
+    document.getElementById('login-form-reset').style.display = type === 'reset' ? 'block' : 'none';
+    document.getElementById('login-form-confirmed').style.display = type === 'confirmed' ? 'block' : 'none';
+    ['auth-status','signup-status','forgot-status','reset-status'].forEach(id => { const el = document.getElementById(id); if(el) el.style.display = 'none'; });
   }
 
   function setAuthStatus(id, ok, msg) {
@@ -1096,6 +1155,34 @@ textarea.finp { resize:vertical; min-height:90px; }
     setAuthStatus('forgot-status', true, '✅ Reset link sent — check your email');
   }
 
+  async function doResetPassword() {
+    const pw = document.getElementById('reset-password').value;
+    const pw2 = document.getElementById('reset-password-confirm').value;
+    if (!pw || pw.length < 6) { setAuthStatus('reset-status', false, 'Password must be at least 6 characters'); return; }
+    if (pw !== pw2) { setAuthStatus('reset-status', false, 'Passwords do not match'); return; }
+
+    document.getElementById('reset-btn').textContent = 'Updating...';
+    document.getElementById('reset-btn').disabled = true;
+
+    const { error } = await sb.auth.updateUser({ password: pw });
+
+    document.getElementById('reset-btn').textContent = 'Update Password';
+    document.getElementById('reset-btn').disabled = false;
+
+    if (error) { setAuthStatus('reset-status', false, error.message); return; }
+    setAuthStatus('reset-status', true, '✅ Password updated — signing you in...');
+    setTimeout(async () => {
+      const { data: { session } } = await sb.auth.getSession();
+      if (session) {
+        currentUser = session.user;
+        await loadCompanyAndEnter();
+      } else {
+        showAuthForm('signin');
+        setAuthStatus('auth-status', true, '✅ Password updated — please sign in with your new password');
+      }
+    }, 1500);
+  }
+
   async function loadCompanyAndEnter() {
     // Load or create company
     const { data: companies } = await sb.from('companies').select('*').limit(1);
@@ -1141,6 +1228,13 @@ textarea.finp { resize:vertical; min-height:90px; }
     setNav(0);
     toast('✅ Welcome back — ' + coName, 'success');
 
+    // Apply plan restrictions to modules
+    applyPlanRestrictions();
+
+    // Show current plan in settings
+    const planDisplay = document.getElementById('plan-name-display');
+    if (planDisplay) planDisplay.textContent = (currentCompany?.plan || 'STARTER').toUpperCase();
+
     // Load all data in background
     loadInvoices();
     loadVariations();
@@ -1152,19 +1246,63 @@ textarea.finp { resize:vertical; min-height:90px; }
     updateHomeStats();
   }
 
-  // ═══ CHECK SESSION ON LOAD ═════════════════════════════════════════════════
-  sb.auth.onAuthStateChange(async (event, session) => {
-    if (event === 'SIGNED_IN' && session && !currentUser) {
-      currentUser = session.user;
+  // ═══ EMAIL CONFIRMED HANDLER ════════════════════════════════════════════════
+  let confirmedSession = null;
+
+  async function confirmedContinue() {
+    if (confirmedSession) {
+      currentUser = confirmedSession.user;
       await loadCompanyAndEnter();
+    } else {
+      const { data: { session } } = await sb.auth.getSession();
+      if (session) {
+        currentUser = session.user;
+        await loadCompanyAndEnter();
+      } else {
+        showAuthForm('signin');
+        setAuthStatus('auth-status', true, '✅ Email confirmed — please sign in');
+      }
+    }
+  }
+
+  // ═══ CHECK SESSION ON LOAD ═════════════════════════════════════════════════
+  let hasEnteredApp = false;
+
+  sb.auth.onAuthStateChange(async (event, session) => {
+    if (event === 'PASSWORD_RECOVERY') {
+      showAuthForm('reset');
+      return;
+    }
+    if (event === 'SIGNED_IN' && session) {
+      // Check if this is from an email confirmation (URL has type=signup)
+      const hash = window.location.hash;
+      if (hash && hash.includes('type=signup') && !hasEnteredApp) {
+        confirmedSession = session;
+        showAuthForm('confirmed');
+        // Clean the URL hash
+        history.replaceState(null, '', window.location.pathname);
+        return;
+      }
+      if (!hasEnteredApp) {
+        currentUser = session.user;
+        hasEnteredApp = true;
+        await loadCompanyAndEnter();
+      }
     }
   });
 
-  // Check existing session
+  // Check existing session + handle tokens in URL
   (async () => {
+    const hash = window.location.hash;
+    if (hash && (hash.includes('type=recovery') || hash.includes('type=signup'))) {
+      // Let onAuthStateChange handle it
+      return;
+    }
+
     const { data: { session } } = await sb.auth.getSession();
     if (session) {
       currentUser = session.user;
+      hasEnteredApp = true;
       await loadCompanyAndEnter();
     }
   })();
