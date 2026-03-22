@@ -1044,7 +1044,7 @@ textarea.finp { resize:vertical; min-height:100px; }
 
   // ═══ WEBHOOK URLS (still fire n8n automations alongside DB saves) ═════════
   const WEBHOOKS = {
-    newInvoice:       'https://ciccio123456.app.n8n.cloud/webhook/tally-invoice',
+    newInvoice:       'https://your-n8n-instance.com/webhook/new-invoice',
     chaseInvoice:     'https://your-n8n-instance.com/webhook/chase-invoice',
     logVariation:     'https://ciccio123456.app.n8n.cloud/webhook/variation-capture',
     newRfi:           'https://your-n8n-instance.com/webhook/new-rfi',
@@ -1159,28 +1159,26 @@ textarea.finp { resize:vertical; min-height:100px; }
     document.getElementById('login-btn').textContent = 'Signing in...';
     document.getElementById('login-btn').disabled = true;
 
-    const { data, error } = await sb.auth.signInWithPassword({ email, password });
+    try {
+      const { data, error } = await sb.auth.signInWithPassword({ email, password });
 
-    if (error) {
+      if (error) {
+        setAuthStatus('auth-status', false, error.message);
+        return;
+      }
+
+      // Go straight in — don't wait for onAuthStateChange
+      currentUser = data.user;
+      hasEnteredApp = true;
+      await loadCompanyAndEnter();
+
+    } catch(err) {
+      console.error('Sign in error:', err);
+      setAuthStatus('auth-status', false, 'Something went wrong — please try again');
+    } finally {
       document.getElementById('login-btn').textContent = 'Sign In';
       document.getElementById('login-btn').disabled = false;
-      setAuthStatus('auth-status', false, error.message);
-      return;
     }
-
-    // Auth succeeded — onAuthStateChange should fire and handle entry.
-    // But as a safety net, if we haven't entered after 3 seconds, force it.
-    setTimeout(() => {
-      if (!hasEnteredApp && data.user) {
-        console.log('Fallback: onAuthStateChange did not fire, forcing entry');
-        currentUser = data.user;
-        hasEnteredApp = true;
-        loadCompanyAndEnter().finally(() => {
-          document.getElementById('login-btn').textContent = 'Sign In';
-          document.getElementById('login-btn').disabled = false;
-        });
-      }
-    }, 3000);
   }
 
   async function doSignUp() {
@@ -1366,21 +1364,22 @@ textarea.finp { resize:vertical; min-height:100px; }
   let hasEnteredApp = false;
 
   sb.auth.onAuthStateChange(async (event, session) => {
+    // Only handle special auth events — manual sign-in is handled by doSignIn directly
     if (event === 'PASSWORD_RECOVERY') {
       showAuthForm('reset');
       return;
     }
-    if (event === 'SIGNED_IN' && session) {
-      // Check if this is from an email confirmation (URL has type=signup)
+    // Email confirmation redirect
+    if (event === 'SIGNED_IN' && session && !hasEnteredApp) {
       const hash = window.location.hash;
-      if (hash && hash.includes('type=signup') && !hasEnteredApp) {
+      if (hash && hash.includes('type=signup')) {
         confirmedSession = session;
         showAuthForm('confirmed');
-        // Clean the URL hash
         history.replaceState(null, '', window.location.pathname);
         return;
       }
-      if (!hasEnteredApp) {
+      // Token refresh or redirect sign-in (not manual) — only enter if we haven't already
+      if (!hasEnteredApp && !document.getElementById('login-btn')?.disabled) {
         currentUser = session.user;
         hasEnteredApp = true;
         await loadCompanyAndEnter();
